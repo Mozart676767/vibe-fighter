@@ -18,7 +18,7 @@ const CARD_HEIGHT = 384;
 
 // Temporary: only these fighters are selectable in the Play flow. The full
 // roster (incl. the green boxer) remains available in the Fighter Playground.
-const SELECTABLE_FIGHTER_IDS = ['red-brawler', 'jiujitsu-fighter'];
+const SELECTABLE_FIGHTER_IDS = ['red-brawler', 'jiujitsu-fighter', 'bayasaa'];
 const SELECTABLE_ROSTER = FIGHTER_CHARACTER_DEFINITIONS.filter((character) =>
   SELECTABLE_FIGHTER_IDS.includes(character.id)
 );

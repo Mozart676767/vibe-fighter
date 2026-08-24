@@ -24,6 +24,13 @@
       "jump": 1040,
       "gravity": 2300,
       "scale": 1.6
+    },
+    "bayasaa": {
+      "walkSpeed": 255,
+      "airDrift": 200,
+      "jump": 1020,
+      "gravity": 2300,
+      "scale": 1.4
     }
   },
   "combat": {
@@ -62,6 +69,18 @@
       "specialDamage": 5,
       "specialKnockback": 150,
       "specialHitstun": 220
+    },
+    "bayasaa": {
+      "maxHealth": 110,
+      "highDamage": 8,
+      "highKnockback": 200,
+      "highHitstun": 290,
+      "lowDamage": 15,
+      "lowKnockback": 360,
+      "lowHitstun": 460,
+      "specialDamage": 8,
+      "specialKnockback": 200,
+      "specialHitstun": 260
     }
   }
 }

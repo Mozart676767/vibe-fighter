@@ -47,9 +47,9 @@ export const RED_BRAWLER_ANCHOR_ASSET: ImageAsset = {
 export const RED_BRAWLER_PORTRAIT_ASSET: ImageAsset = {
   kind: 'image',
   key: 'red-brawler-portrait',
-  url: `${ASSET_ROOT}/portrait.png`,
-  width: 1254,
-  height: 1254,
+  url: `${ASSET_ROOT}/anchor-w.png`,
+  width: 1024,
+  height: 1024,
   usage: 'red brawler character-select portrait'
 };
 

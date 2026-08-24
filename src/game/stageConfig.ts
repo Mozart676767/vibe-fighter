@@ -50,14 +50,7 @@ export const STAGE_DEFINITIONS: StageDefinition[] = [
   }
 ];
 
-export const STAGE_IMAGE_ASSETS: ImageAsset[] = STAGE_DEFINITIONS.map((stage) => ({
-  kind: 'image',
-  key: stage.key,
-  url: stage.url,
-  width: stage.width,
-  height: stage.height,
-  usage: `${stage.label.toLowerCase()} fighting-stage background candidate`
-}));
+export const STAGE_IMAGE_ASSETS: ImageAsset[] = [];
 
 export const DEFAULT_STAGE_PREVIEW_STATE: StagePreviewDebugState = {
   stageId: STAGE_DEFINITIONS[0].id,

@@ -8,7 +8,6 @@ import {
 } from './core/audio';
 import { GENERATED_TEXTURE_ASSETS, type GeneratedTextureAsset } from './generatedAssets';
 import { CHARACTER_ANIMATIONS, CHARACTER_ASSETS } from './hero';
-import { STAGE_IMAGE_ASSETS } from './stageConfig';
 import { TILE_ATLAS_IMAGE_URL, TILE_ATLAS_TEXTURE_KEY, TILE_ATLAS_SIZE } from './tileAtlas';
 import {
   QUEST_UI_ATLAS_IMAGE_URL,
@@ -101,29 +100,10 @@ export const UI_IMAGE_ASSETS: ImageAsset[] = [
   }
 ];
 
-export const MODE_CARD_IMAGE_ASSETS: ImageAsset[] = [
-  {
-    kind: 'image',
-    key: 'mode-card-1v1',
-    url: '/assets/mode-cards/mode-1v1-card.png',
-    width: 1330,
-    height: 1182,
-    usage: 'mode select card art for local 1 vs 1'
-  },
-  {
-    kind: 'image',
-    key: 'mode-card-1vcpu',
-    url: '/assets/mode-cards/mode-1vcpu-card.png',
-    width: 1392,
-    height: 1130,
-    usage: 'mode select card art for player versus CPU'
-  }
-];
+export const MODE_CARD_IMAGE_ASSETS: ImageAsset[] = [];
 
 export const STARTER_ASSETS: StarterAsset[] = [
   ...CHARACTER_ASSETS,
-  ...STAGE_IMAGE_ASSETS,
-  ...MODE_CARD_IMAGE_ASSETS,
   ...TILE_IMAGE_ASSETS,
   ...UI_IMAGE_ASSETS,
   ...STARTER_AUDIO_ASSETS

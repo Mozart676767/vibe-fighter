@@ -3,6 +3,7 @@ import type { ImageAsset, SpritesheetAsset } from './assets';
 import { RED_BRAWLER_CHARACTER } from './redBrawler';
 import { GREEN_BOXER_CHARACTER } from './greenBoxer';
 import { JIUJITSU_FIGHTER_CHARACTER } from './jiujitsuFighter';
+import { BAYASAA_CHARACTER } from './bayasaa';
 
 export interface HeroBoundsFrame {
   frame: number;
@@ -46,7 +47,8 @@ export interface CharacterDefinition {
 export const CHARACTER_DEFINITIONS: CharacterDefinition[] = [
   RED_BRAWLER_CHARACTER,
   GREEN_BOXER_CHARACTER,
-  JIUJITSU_FIGHTER_CHARACTER
+  JIUJITSU_FIGHTER_CHARACTER,
+  BAYASAA_CHARACTER
 ];
 
 /**

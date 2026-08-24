@@ -2,6 +2,7 @@ import { FIGHTER_CHARACTER_DEFINITIONS, getCharacterDefinition } from './hero';
 import { RED_BRAWLER_CHARACTER_ID } from './redBrawler';
 import { GREEN_BOXER_CHARACTER_ID } from './greenBoxer';
 import { JIUJITSU_FIGHTER_CHARACTER_ID } from './jiujitsuFighter';
+import { BAYASAA_CHARACTER_ID } from './bayasaa';
 import type {
   AttackKind,
   AttackProfile,
@@ -33,7 +34,8 @@ export const DEFAULT_FIGHTER_STATS: FighterStats = {
 const FIGHTER_STAT_OVERRIDES: Record<string, Partial<FighterStats>> = {
   [RED_BRAWLER_CHARACTER_ID]: {},
   [GREEN_BOXER_CHARACTER_ID]: { walkSpeed: 250, jump: 1000 },
-  [JIUJITSU_FIGHTER_CHARACTER_ID]: { walkSpeed: 240, airDrift: 210, jump: 1040 }
+  [JIUJITSU_FIGHTER_CHARACTER_ID]: { walkSpeed: 240, airDrift: 210, jump: 1040 },
+  [BAYASAA_CHARACTER_ID]: { walkSpeed: 255, airDrift: 200, jump: 1020 }
 };
 
 /**
@@ -89,6 +91,18 @@ const FIGHTER_COMBAT_OVERRIDES: Record<string, Partial<FighterCombat>> = {
     lowHitstun: 480,
     specialDamage: 5,
     specialHitstun: 220
+  },
+  [BAYASAA_CHARACTER_ID]: {
+    maxHealth: 110,
+    highDamage: 8,
+    highKnockback: 200,
+    highHitstun: 290,
+    lowDamage: 15,
+    lowKnockback: 360,
+    lowHitstun: 460,
+    specialDamage: 8,
+    specialKnockback: 200,
+    specialHitstun: 260
   }
 };
 
