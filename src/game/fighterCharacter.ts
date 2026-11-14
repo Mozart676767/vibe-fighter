@@ -228,7 +228,7 @@ function requireSheet(sheets: SpritesheetAsset[], key: string): SpritesheetAsset
  * @param frameWidth - Spritesheet frame width.
  * @param frameHeight - Spritesheet frame height.
  */
-function collisionBounds(visual: Rect, frameWidth = FRAME_WIDTH, frameHeight = FRAME_HEIGHT): Rect {
+export function collisionBounds(visual: Rect, frameWidth = FRAME_WIDTH, frameHeight = FRAME_HEIGHT): Rect {
   const width = Math.min(58, Math.max(34, Math.round(visual.width * 0.46)));
   const height = Math.max(74, Math.round(visual.height * 0.82));
 
@@ -246,7 +246,7 @@ function collisionBounds(visual: Rect, frameWidth = FRAME_WIDTH, frameHeight = F
  * @param frameWidth - Spritesheet frame width.
  * @param frameHeight - Spritesheet frame height.
  */
-function hitBounds(visual: Rect, frameWidth = FRAME_WIDTH, frameHeight = FRAME_HEIGHT): Rect {
+export function hitBounds(visual: Rect, frameWidth = FRAME_WIDTH, frameHeight = FRAME_HEIGHT): Rect {
   return {
     x: Math.max(0, visual.x - 4),
     y: Math.max(0, visual.y + 2),

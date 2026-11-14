@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 
 import { AUDIO_KEYS, playAudioCue } from '../game/core/audio';
 import { FIGHTER_CHARACTER_DEFINITIONS } from '../game/hero';
+import { MY_FIGHTER_IDS } from '../game/myFighterLoader';
 import { createSelectionCard, type SelectionCard } from '../game/ui';
 import { SCENE_KEYS, type MatchMode } from '../game/types';
 import { BaseScene } from './BaseScene';
@@ -13,15 +14,22 @@ interface CharacterSelectData {
 
 const P1_COLOR = 0x38bdf8;
 const P2_COLOR = 0xf43f5e;
-const CARD_WIDTH = 300;
-const CARD_HEIGHT = 384;
 
 // Temporary: only these fighters are selectable in the Play flow. The full
 // roster (incl. the green boxer) remains available in the Fighter Playground.
-const SELECTABLE_FIGHTER_IDS = ['red-brawler', 'jiujitsu-fighter', 'bayasaa'];
-const SELECTABLE_ROSTER = FIGHTER_CHARACTER_DEFINITIONS.filter((character) =>
-  SELECTABLE_FIGHTER_IDS.includes(character.id)
+// Fighters from myFighters.ts come first, so a new fighter is P1's default pick.
+const SELECTABLE_FIGHTER_IDS = [...MY_FIGHTER_IDS, 'red-brawler', 'jiujitsu-fighter', 'bayasaa'];
+const SELECTABLE_ROSTER = SELECTABLE_FIGHTER_IDS.flatMap((id) =>
+  FIGHTER_CHARACTER_DEFINITIONS.filter((character) => character.id === id)
 );
+
+// Cards shrink so any roster size fits the 1180px usable width.
+const CARD_GAP = SELECTABLE_ROSTER.length > 3 ? 24 : 48;
+const CARD_WIDTH = Math.min(
+  300,
+  Math.floor((1180 - CARD_GAP * (SELECTABLE_ROSTER.length - 1)) / Math.max(1, SELECTABLE_ROSTER.length))
+);
+const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.28);
 
 interface PlayerCursor {
   index: number;
@@ -81,7 +89,7 @@ export class CharacterSelectScene extends BaseScene {
   private buildCards(): void {
     const { centerX, centerY } = this.cameras.main;
     const roster = SELECTABLE_ROSTER;
-    const gap = 48;
+    const gap = CARD_GAP;
     const totalWidth = CARD_WIDTH * roster.length + gap * (roster.length - 1);
     const startX = centerX - totalWidth / 2 + CARD_WIDTH / 2;
     const y = centerY + 24;

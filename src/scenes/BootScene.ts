@@ -1,5 +1,6 @@
 import { preloadStarterAssets, registerStarterAnimations } from '../game/assets';
 import { registerGeneratedAssets } from '../game/generatedAssets';
+import { prepareMyFighters } from '../game/myFighterLoader';
 import { registerTileAtlasFrames } from '../game/tileAtlas';
 import { registerQuestUiAtlasFrames } from '../game/uiAtlas';
 import { registerFightingUiAtlasFrames } from '../game/fightingUiAtlas';
@@ -21,7 +22,14 @@ export class BootScene extends BaseScene {
     registerTileAtlasFrames(this);
     registerQuestUiAtlasFrames(this);
     registerFightingUiAtlasFrames(this);
-    registerStarterAnimations(this);
-    this.scene.start(SCENE_KEYS.Splash);
+
+    // Fighters from myFighters.ts are sliced from raw pictures first, because
+    // their frame counts are only known once the pictures are read.
+    void prepareMyFighters(this)
+      .catch((error) => console.error('[my-fighter] could not prepare fighters', error))
+      .then(() => {
+        registerStarterAnimations(this);
+        this.scene.start(SCENE_KEYS.Splash);
+      });
   }
 }

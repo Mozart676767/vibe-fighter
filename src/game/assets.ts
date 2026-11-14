@@ -27,6 +27,8 @@ export interface ImageAsset {
   width?: number;
   height?: number;
   usage?: string;
+  /** Texture is created in code (see myFighterLoader), not loaded from `url`. */
+  auto?: boolean;
 }
 
 export interface AtlasAsset {
@@ -48,6 +50,8 @@ export interface SpritesheetAsset {
   frames: number;
   margin?: number;
   spacing?: number;
+  /** Texture is created in code (see myFighterLoader), not loaded from `url`. */
+  auto?: boolean;
 }
 
 export interface AudioAsset {
@@ -125,6 +129,10 @@ export const ASSET_CATALOG: Array<
 
 export function preloadStarterAssets(scene: Phaser.Scene, assets: StarterAsset[] = STARTER_ASSETS): void {
   assets.forEach((asset) => {
+    if ((asset.kind === 'image' || asset.kind === 'spritesheet') && asset.auto) {
+      return;
+    }
+
     if (asset.kind === 'image') {
       if (!scene.textures.exists(asset.key)) {
         scene.load.image(asset.key, asset.url);
