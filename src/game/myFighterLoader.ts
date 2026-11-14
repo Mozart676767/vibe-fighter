@@ -27,7 +27,9 @@ import type { Rect } from './types';
  * fighter works with `idle` alone and improves as pictures are added.
  */
 
-type SheetName = 'idle' | 'walk' | 'punch' | 'kick' | 'hit' | 'ko' | 'jump' | 'crouch' | 'block' | 'special';
+const SHEET_NAMES = ['idle', 'walk', 'punch', 'kick', 'hit', 'ko', 'jump', 'crouch', 'block', 'special'] as const;
+
+type SheetName = (typeof SHEET_NAMES)[number];
 
 interface ActionPlan {
   action: string;
@@ -173,7 +175,6 @@ async function prepareFighter(
   const root = `/assets/${fighter.id}`;
   const urls = (name: string): string[] => EXTENSIONS.map((extension) => `${root}/${name}.${extension}`);
   const sheets = new Map<SheetName, RawSheet | null>();
-  const report: string[] = [];
 
   const getSheet = async (name: SheetName): Promise<RawSheet | null> => {
     if (!sheets.has(name)) {
@@ -181,7 +182,6 @@ async function prepareFighter(
       const sheet = image ? sliceRawSheet(image, { flip: fighter.flip, frames: fighter.frames?.[name] }) : null;
 
       sheets.set(name, sheet);
-      report.push(sheet ? `${name} ${sheet.frames}` : `${name} -`);
     }
 
     return sheets.get(name) ?? null;
@@ -236,7 +236,9 @@ async function prepareFighter(
     scene.textures.addCanvas(character.anchorAsset.key, frameToCanvas(idle));
   }
 
-  console.info(`[my-fighter] ${fighter.id}: ${report.join(', ')}  (name frames, "-" = picture not found)`);
+  const report = SHEET_NAMES.map((name) => `${name} ${sheets.get(name)?.frames ?? '-'}`);
+
+  console.info(`[my-fighter] ${fighter.id}: ${report.join(', ')}   (number = poses found, "-" = no picture)`);
 
   if (!sheets.get('idle')) {
     console.warn(`[my-fighter] ${fighter.id}: public${root}/idle.png not found or has no pose in it`);

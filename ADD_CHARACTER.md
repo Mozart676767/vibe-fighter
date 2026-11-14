@@ -55,7 +55,7 @@ The fighter appears first on the select screen.
 Open the browser console (F12). One line per fighter:
 
 ```
-[my-fighter] naruto: idle 4, walk 4, punch 4, kick 4, hit 3, ko 5, jump -  ...
+[my-fighter] naruto: idle 4, walk 4, punch 4, kick 4, hit 3, ko 5, jump -, crouch -, block -, special -
 ```
 
 Number = poses found. `-` = picture not found (check the folder and file name).
