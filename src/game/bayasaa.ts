@@ -137,5 +137,6 @@ export const BAYASAA_CHARACTER: CharacterDefinition = buildFighterCharacter({
   label: 'Bayasaa',
   assetRoot: '/assets/bayasaa',
   anchorUsage: 'bayasaa fighter west-facing high-fidelity anchor',
+  portraitFile: 'portrait.jpg',
   actions: BAYASAA_ACTIONS
 });
