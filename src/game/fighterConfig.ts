@@ -1,8 +1,4 @@
 import { FIGHTER_CHARACTER_DEFINITIONS, getCharacterDefinition } from './hero';
-import { RED_BRAWLER_CHARACTER_ID } from './redBrawler';
-import { GREEN_BOXER_CHARACTER_ID } from './greenBoxer';
-import { JIUJITSU_FIGHTER_CHARACTER_ID } from './jiujitsuFighter';
-import { BAYASAA_CHARACTER_ID } from './bayasaa';
 import type {
   AttackKind,
   AttackProfile,
@@ -32,10 +28,21 @@ export const DEFAULT_FIGHTER_STATS: FighterStats = {
  * persisted to `public/configs/fighter-playground.json`.
  */
 const FIGHTER_STAT_OVERRIDES: Record<string, Partial<FighterStats>> = {
-  [RED_BRAWLER_CHARACTER_ID]: {},
-  [GREEN_BOXER_CHARACTER_ID]: { walkSpeed: 250, jump: 1000 },
-  [JIUJITSU_FIGHTER_CHARACTER_ID]: { walkSpeed: 240, airDrift: 210, jump: 1040 },
-  [BAYASAA_CHARACTER_ID]: { walkSpeed: 255, airDrift: 200, jump: 1020 }
+  naruto: { walkSpeed: 245, airDrift: 205, jump: 1010 },
+  sasuke: { walkSpeed: 255, airDrift: 220, jump: 1030 },
+  kakashi: { walkSpeed: 245, airDrift: 210, jump: 1020 },
+  minato: { walkSpeed: 275, airDrift: 230, jump: 1040 },
+  itachi: { walkSpeed: 260, airDrift: 220, jump: 1030 },
+  gaara: { walkSpeed: 210, airDrift: 175, jump: 950 },
+  sakura: { walkSpeed: 240, airDrift: 200, jump: 1000 },
+  'rock-lee': { walkSpeed: 290, airDrift: 240, jump: 1070 },
+  jiraiya: { walkSpeed: 225, airDrift: 185, jump: 970 },
+  pain: { walkSpeed: 240, airDrift: 215, jump: 1020 },
+  goku: { walkSpeed: 270, airDrift: 230, jump: 1050 },
+  luffy: { walkSpeed: 255, airDrift: 220, jump: 1060 },
+  gojo: { walkSpeed: 265, airDrift: 235, jump: 1040 },
+  ichigo: { walkSpeed: 280, airDrift: 225, jump: 1030 },
+  tanjiro: { walkSpeed: 260, airDrift: 215, jump: 1020 }
 };
 
 /**
@@ -64,7 +71,7 @@ export const FIGHTER_STAT_FIELDS: FighterStatField[] = [
  * harder, pushes further, and stuns longer.
  */
 export const DEFAULT_FIGHTER_COMBAT: FighterCombat = {
-  maxHealth: 100,
+  maxHealth: 220,
   highDamage: 7,
   highKnockback: 180,
   highHitstun: 280,
@@ -81,28 +88,152 @@ export const DEFAULT_FIGHTER_COMBAT: FighterCombat = {
  * persisted alongside the movement stats.
  */
 const FIGHTER_COMBAT_OVERRIDES: Record<string, Partial<FighterCombat>> = {
-  [RED_BRAWLER_CHARACTER_ID]: { specialDamage: 7, specialKnockback: 170 },
-  [GREEN_BOXER_CHARACTER_ID]: { highDamage: 9, highKnockback: 220, lowDamage: 10, lowKnockback: 300 },
-  [JIUJITSU_FIGHTER_CHARACTER_ID]: {
-    maxHealth: 110,
-    highDamage: 6,
-    lowDamage: 14,
-    lowKnockback: 380,
-    lowHitstun: 480,
-    specialDamage: 5,
-    specialHitstun: 220
+  naruto: {
+    maxHealth: 230,
+    highDamage: 7,
+    lowDamage: 13,
+    specialDamage: 9,
+    specialKnockback: 230,
+    specialHitstun: 360
   },
-  [BAYASAA_CHARACTER_ID]: {
-    maxHealth: 110,
+  sasuke: {
+    maxHealth: 215,
     highDamage: 8,
     highKnockback: 200,
-    highHitstun: 290,
-    lowDamage: 15,
+    lowDamage: 14,
     lowKnockback: 360,
+    specialDamage: 29,
+    specialKnockback: 240,
+    specialHitstun: 460
+  },
+  kakashi: {
+    maxHealth: 220,
+    highDamage: 8,
+    lowDamage: 13,
     lowHitstun: 460,
-    specialDamage: 8,
-    specialKnockback: 200,
-    specialHitstun: 260
+    specialDamage: 28,
+    specialKnockback: 230,
+    specialHitstun: 500
+  },
+  minato: {
+    maxHealth: 215,
+    highDamage: 8,
+    highKnockback: 210,
+    lowDamage: 13,
+    lowKnockback: 350,
+    specialDamage: 27,
+    specialKnockback: 240,
+    specialHitstun: 480
+  },
+  itachi: {
+    maxHealth: 215,
+    highDamage: 8,
+    highHitstun: 300,
+    lowDamage: 13,
+    lowHitstun: 460,
+    specialDamage: 9,
+    specialKnockback: 180,
+    specialHitstun: 420
+  },
+  gaara: {
+    maxHealth: 255,
+    highDamage: 7,
+    highKnockback: 210,
+    lowDamage: 13,
+    lowKnockback: 380,
+    specialDamage: 14,
+    specialKnockback: 220,
+    specialHitstun: 460
+  },
+  sakura: {
+    maxHealth: 225,
+    highDamage: 8,
+    highKnockback: 210,
+    lowDamage: 16,
+    lowKnockback: 420,
+    lowHitstun: 480,
+    specialDamage: 32,
+    specialKnockback: 300,
+    specialHitstun: 520
+  },
+  'rock-lee': {
+    maxHealth: 215,
+    highDamage: 8,
+    highKnockback: 190,
+    lowDamage: 15,
+    lowKnockback: 390,
+    specialDamage: 10,
+    specialKnockback: 230,
+    specialHitstun: 360
+  },
+  jiraiya: {
+    maxHealth: 250,
+    highDamage: 8,
+    lowDamage: 14,
+    lowKnockback: 370,
+    specialDamage: 10,
+    specialKnockback: 220,
+    specialHitstun: 380
+  },
+  pain: {
+    maxHealth: 235,
+    highDamage: 8,
+    highKnockback: 220,
+    lowDamage: 14,
+    lowKnockback: 400,
+    specialDamage: 30,
+    specialKnockback: 320,
+    specialHitstun: 520
+  },
+  goku: {
+    maxHealth: 240,
+    highDamage: 8,
+    highKnockback: 200,
+    lowDamage: 15,
+    lowKnockback: 380,
+    specialDamage: 11,
+    specialKnockback: 240,
+    specialHitstun: 400
+  },
+  luffy: {
+    maxHealth: 245,
+    highDamage: 8,
+    highKnockback: 210,
+    lowDamage: 15,
+    lowKnockback: 400,
+    specialDamage: 10,
+    specialKnockback: 250,
+    specialHitstun: 380
+  },
+  gojo: {
+    maxHealth: 230,
+    highDamage: 8,
+    highKnockback: 200,
+    lowDamage: 14,
+    lowKnockback: 380,
+    specialDamage: 32,
+    specialKnockback: 310,
+    specialHitstun: 540
+  },
+  ichigo: {
+    maxHealth: 230,
+    highDamage: 9,
+    highKnockback: 210,
+    lowDamage: 15,
+    lowKnockback: 390,
+    specialDamage: 15,
+    specialKnockback: 260,
+    specialHitstun: 440
+  },
+  tanjiro: {
+    maxHealth: 225,
+    highDamage: 8,
+    highKnockback: 195,
+    lowDamage: 14,
+    lowKnockback: 370,
+    specialDamage: 10,
+    specialKnockback: 230,
+    specialHitstun: 380
   }
 };
 
@@ -381,14 +512,10 @@ export function clampFighterCombat(value: Partial<FighterCombat>): FighterCombat
 }
 
 /**
- * Default selectable fighter (first fighter in the roster, preferring the red brawler).
+ * Default selectable fighter (first fighter in the roster).
  */
 export function defaultFighterCharacterId(): string {
-  const preferred = FIGHTER_CHARACTER_DEFINITIONS.find(
-    (character) => character.id === RED_BRAWLER_CHARACTER_ID
-  );
-
-  return preferred?.id ?? FIGHTER_CHARACTER_DEFINITIONS[0]?.id ?? RED_BRAWLER_CHARACTER_ID;
+  return FIGHTER_CHARACTER_DEFINITIONS[0]?.id ?? 'naruto';
 }
 
 function normalizeFighterCharacterId(value: unknown): string {

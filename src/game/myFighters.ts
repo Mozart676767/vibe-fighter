@@ -19,6 +19,22 @@ export interface MyFighter {
   frames?: Record<string, number>;
 }
 
+const FOUR_FRAME_SHEET = { idle: 4, walk: 4, punch: 4, kick: 4, hit: 4, ko: 4 };
+
 export const MY_FIGHTERS: MyFighter[] = [
-  // { id: 'my-hero', name: 'My Hero' },
+  { id: 'naruto', name: 'Naruto', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'sasuke', name: 'Sasuke', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'kakashi', name: 'Kakashi', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'minato', name: 'Minato', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'itachi', name: 'Itachi', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'gaara', name: 'Gaara', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'sakura', name: 'Sakura', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'rock-lee', name: 'Rock Lee', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'jiraiya', name: 'Jiraiya', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'pain', name: 'Pain', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'goku', name: 'Goku', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'luffy', name: 'Luffy', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'gojo', name: 'Gojo', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'ichigo', name: 'Ichigo', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'tanjiro', name: 'Tanjiro', flip: true, frames: FOUR_FRAME_SHEET },
 ];

@@ -3,6 +3,7 @@ import * as Phaser from 'phaser';
 import { Fighter, NEUTRAL_FIGHTER_INPUT, type FighterInput } from '../game/fighter';
 import { getCharacterDefinition } from '../game/hero';
 import { MatchHud } from '../game/matchHud';
+import { getSpecialPower } from '../game/specialPowers';
 import { getStageDefinition } from '../game/stageConfig';
 import { playSuperCutIn } from '../game/superCutIn';
 import { SCENE_KEYS, type MatchConfig } from '../game/types';
@@ -22,7 +23,7 @@ const CAMERA_LERP = 0.14;
 const ROUNDS_TO_WIN = 2;
 // Seconds on the round clock. When it expires the fighter with more health wins
 // (a tie is a draw and replays the round).
-const ROUND_SECONDS = 60;
+const ROUND_SECONDS = 90;
 const HUD_DEPTH = 100;
 const BANNER_DEPTH = 200;
 const OVERLAY_DEPTH = 300;
@@ -77,6 +78,7 @@ export class MatchScene extends BaseScene {
   private hud!: MatchHud;
   private banner!: Phaser.GameObjects.Text;
   private roundTimeMs = ROUND_SECONDS * 1000;
+  private hitstopTimer = 0;
   private overlay: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
@@ -95,6 +97,7 @@ export class MatchScene extends BaseScene {
     this.roundNumber = 1;
     this.p1Wins = 0;
     this.p2Wins = 0;
+    this.hitstopTimer = 0;
     this.overlay = [];
 
     this.markActiveScene(SCENE_KEYS.Match);
@@ -149,12 +152,17 @@ export class MatchScene extends BaseScene {
    */
   update(time: number, delta: number): void {
     const seconds = delta / 1000;
+    if (this.hitstopTimer > 0) {
+      this.hitstopTimer = Math.max(0, this.hitstopTimer - seconds);
+      return;
+    }
+
     const fighting = this.phase === 'fighting';
 
     const p1Input = fighting ? this.readKeys(this.p1Keys) : { ...NEUTRAL_FIGHTER_INPUT };
     const p2Input = fighting
       ? this.cpu
-        ? this.cpu.update(time)
+        ? this.cpu.update(time, this.p2, this.p1)
         : this.readKeys(this.p2Keys)
       : { ...NEUTRAL_FIGHTER_INPUT };
 
@@ -163,11 +171,6 @@ export class MatchScene extends BaseScene {
     // standing guard box; the crouch/low path stays in the code but unused.
     p1Input.crouch = false;
     p2Input.crouch = false;
-
-    // CPU occasionally unleashes its special once the meter is charged.
-    if (fighting && this.cpu && this.p2.isMeterReady && Phaser.Math.Between(0, 150) === 0) {
-      p2Input.special = true;
-    }
 
     this.p1.faceToward(this.p2.x);
     this.p2.faceToward(this.p1.x);
@@ -249,7 +252,11 @@ export class MatchScene extends BaseScene {
     attacker.registerOffense(blocked, isSpecial);
     defender.registerDefense(blocked);
 
-    this.spawnHitFx(attack.rect, hurt, blocked, isSpecial, finisher);
+    this.spawnHitFx(attack.rect, hurt, blocked, isSpecial, finisher, attacker.characterId);
+
+    if (finisher) {
+      this.hitstopTimer = 0.065;
+    }
   }
 
   /**
@@ -260,19 +267,22 @@ export class MatchScene extends BaseScene {
    * @param blocked - Whether the hit was guarded.
    * @param isSpecial - Whether the attack was a special move.
    * @param finisher - Whether this is the special's finishing hit.
+   * @param attackerId - The attacking character id for signature chakra spark colour.
    */
   private spawnHitFx(
     attackRect: Phaser.Geom.Rectangle,
     hurtRect: Phaser.Geom.Rectangle,
     blocked: boolean,
     isSpecial: boolean,
-    finisher: boolean
+    finisher: boolean,
+    attackerId: string
   ): void {
     const sparkX = (Phaser.Geom.Rectangle.GetCenter(attackRect).x + Phaser.Geom.Rectangle.GetCenter(hurtRect).x) / 2;
     const sparkY = (Phaser.Geom.Rectangle.GetCenter(attackRect).y + Phaser.Geom.Rectangle.GetCenter(hurtRect).y) / 2;
 
-    const color: VfxColor = blocked ? 'blue' : finisher ? 'gold' : 'red';
-    const sparkScale = finisher ? 1.7 : isSpecial ? 1.1 : 0.9;
+    const specialColor = getSpecialPower(attackerId).color;
+    const color: VfxColor = blocked ? 'blue' : isSpecial ? specialColor : finisher ? 'gold' : 'red';
+    const sparkScale = finisher ? 1.7 : isSpecial ? 1.25 : 0.9;
     spawnHitSpark(this, sparkX, sparkY, color, sparkScale);
 
     if (finisher) {
@@ -347,6 +357,108 @@ export class MatchScene extends BaseScene {
 
     this.add.image(0, 0, stage.key).setOrigin(0, 0).setScale(scale).setDepth(0);
     cam.setBounds(0, 0, this.stageWorldWidth, cam.height);
+
+    this.spawnStageAtmosphere(stage.id);
+  }
+
+  /** Adds lightweight ambient atmosphere tailored to the active stage. */
+  private spawnStageAtmosphere(stageId: string): void {
+    const cam = this.cameras.main;
+    if (stageId === 'sakura-shrine') {
+      this.time.addEvent({
+        delay: 260,
+        loop: true,
+        callback: () => {
+          const petal = this.add
+            .ellipse(Phaser.Math.Between(-40, cam.width + 40), -12, 10, 6, 0xf9a8d4, 0.85)
+            .setScrollFactor(0)
+            .setDepth(2)
+            .setAngle(Phaser.Math.Between(0, 180));
+          this.tweens.add({
+            targets: petal,
+            x: petal.x + Phaser.Math.Between(70, 180),
+            y: cam.height + 20,
+            angle: petal.angle + Phaser.Math.Between(120, 320),
+            alpha: 0.25,
+            duration: Phaser.Math.Between(3600, 5200),
+            ease: 'Sine.InOut',
+            onComplete: () => petal.destroy()
+          });
+        }
+      });
+    } else if (stageId === 'shibuya-night') {
+      this.time.addEvent({
+        delay: 65,
+        loop: true,
+        callback: () => {
+          const drop = this.add
+            .rectangle(Phaser.Math.Between(0, cam.width + 80), -20, 2, 22, 0x93c5fd, 0.28)
+            .setScrollFactor(0)
+            .setDepth(12)
+            .setAngle(12);
+          this.tweens.add({
+            targets: drop,
+            x: drop.x - 95,
+            y: cam.height + 30,
+            duration: 460,
+            ease: 'Linear',
+            onComplete: () => drop.destroy()
+          });
+        }
+      });
+    } else if (stageId === 'final-valley') {
+      this.time.addEvent({
+        delay: 380,
+        loop: true,
+        callback: () => {
+          const mist = this.add
+            .circle(
+              cam.width * 0.45 + Phaser.Math.Between(-160, 160),
+              cam.height * 0.78,
+              Phaser.Math.Between(18, 36),
+              0xe2e8f0,
+              0.14
+            )
+            .setScrollFactor(0)
+            .setDepth(2);
+          this.tweens.add({
+            targets: mist,
+            y: mist.y - Phaser.Math.Between(50, 110),
+            scale: 2.1,
+            alpha: 0,
+            duration: 2100,
+            ease: 'Quad.Out',
+            onComplete: () => mist.destroy()
+          });
+        }
+      });
+    } else if (stageId === 'martial-arena') {
+      this.time.addEvent({
+        delay: 420,
+        loop: true,
+        callback: () => {
+          const mote = this.add
+            .circle(
+              Phaser.Math.Between(40, cam.width - 40),
+              Phaser.Math.Between(160, Math.round(cam.height * 0.8)),
+              Phaser.Math.Between(2, 4),
+              0xfef08a,
+              0.35
+            )
+            .setScrollFactor(0)
+            .setDepth(2);
+          this.tweens.add({
+            targets: mote,
+            x: mote.x + Phaser.Math.Between(-35, 35),
+            y: mote.y - Phaser.Math.Between(25, 65),
+            alpha: 0,
+            duration: 2200,
+            ease: 'Sine.Out',
+            onComplete: () => mote.destroy()
+          });
+        }
+      });
+    }
   }
 
   /** Spawns P1 (left, facing right) and P2 (right, facing left). */
@@ -369,7 +481,15 @@ export class MatchScene extends BaseScene {
       minX,
       maxX,
       depth: DEPTH_FRONT,
-      onSpecialStart: (fighter) => playSuperCutIn(this, { characterId: fighter.characterId, side: 'left' })
+      onSpecialStart: (fighter) => {
+        const power = getSpecialPower(fighter.characterId);
+        playSuperCutIn(this, {
+          characterId: fighter.characterId,
+          side: 'left',
+          color: power.color,
+          subtitle: power.jutsuName
+        });
+      }
     });
 
     this.p2 = new Fighter({
@@ -382,7 +502,15 @@ export class MatchScene extends BaseScene {
       minX,
       maxX,
       depth: DEPTH_BACK,
-      onSpecialStart: (fighter) => playSuperCutIn(this, { characterId: fighter.characterId, side: 'right' })
+      onSpecialStart: (fighter) => {
+        const power = getSpecialPower(fighter.characterId);
+        playSuperCutIn(this, {
+          characterId: fighter.characterId,
+          side: 'right',
+          color: power.color,
+          subtitle: power.jutsuName
+        });
+      }
     });
   }
 
@@ -490,7 +618,9 @@ export class MatchScene extends BaseScene {
   /** Resets both fighters to their corners and runs the round intro. */
   private startRound(): void {
     this.phase = 'intro';
+    this.hitstopTimer = 0;
     this.roundTimeMs = ROUND_SECONDS * 1000;
+    this.cpu?.reset();
 
     const fullMin = EDGE_MARGIN;
     const fullMax = this.stageWorldWidth - EDGE_MARGIN;
@@ -665,31 +795,73 @@ export class MatchScene extends BaseScene {
  * @param input - The fighter input snapshot to test.
  */
 function isActing(input: FighterInput): boolean {
-  return input.left || input.right || input.jump || input.light || input.heavy;
+  return input.left || input.right || input.jump || input.light || input.heavy || input.special;
 }
 
 /**
- * A placeholder CPU opponent: mostly idle, occasionally performing a short
- * random action (a strike, a hop, or a brief walk/crouch/block). Produces a
- * {@link FighterInput} each frame for the second fighter in 1vCPU matches.
+ * Tactical CPU opponent that tracks spacing, guards incoming swings, chains
+ * light->heavy combos, punishes openings, and fires its signature special
+ * jutsu when in range.
  */
 class CpuController {
   private nextDecisionAt = 0;
   private holdUntil = 0;
   private moveDir = 0;
-  private holdCrouch = false;
   private holdBlock = false;
+  private comboFollowupAt = 0;
+  private nextBlockReactAt = 0;
+
+  reset(): void {
+    this.nextDecisionAt = 0;
+    this.holdUntil = 0;
+    this.moveDir = 0;
+    this.holdBlock = false;
+    this.comboFollowupAt = 0;
+    this.nextBlockReactAt = 0;
+  }
 
   /**
    * Produce the CPU's input for this frame.
    * @param timeMs - The current Phaser clock time in ms.
+   * @param self - The CPU-controlled fighter.
+   * @param target - The opponent fighter.
    */
-  update(timeMs: number): FighterInput {
+  update(timeMs: number, self: Fighter, target: Fighter): FighterInput {
     const input: FighterInput = { ...NEUTRAL_FIGHTER_INPUT };
+    const dx = target.x - self.x;
+    const absDist = Math.abs(dx);
+    const towardDir = dx >= 0 ? 1 : -1;
+
+    // Execute queued combo heavy follow-up right after a light punch.
+    if (this.comboFollowupAt > 0 && timeMs >= this.comboFollowupAt) {
+      this.comboFollowupAt = 0;
+      if (!self.isBusy && absDist < 135) {
+        input.heavy = true;
+        return input;
+      }
+    }
+
+    // Reactive guard when the player threatens an attack nearby.
+    const threatRange = target.isSpecialActive ? 290 : 135;
+    if (
+      !self.isBusy &&
+      !this.holdBlock &&
+      absDist <= threatRange &&
+      (target.isAttacking || target.isSpecialActive) &&
+      timeMs >= this.nextBlockReactAt
+    ) {
+      this.nextBlockReactAt = timeMs + 340;
+      if (Math.random() < 0.62) {
+        this.moveDir = 0;
+        this.holdBlock = true;
+        this.holdUntil = timeMs + Phaser.Math.Between(240, 380);
+        this.nextDecisionAt = Math.max(this.nextDecisionAt, this.holdUntil - 40);
+      }
+    }
 
     if (timeMs >= this.nextDecisionAt) {
-      this.decide(timeMs, input);
-      this.nextDecisionAt = timeMs + Phaser.Math.Between(700, 1700);
+      this.decide(timeMs, input, self, target, absDist, towardDir);
+      this.nextDecisionAt = timeMs + Phaser.Math.Between(170, 340);
     }
 
     if (timeMs < this.holdUntil) {
@@ -698,52 +870,112 @@ class CpuController {
       } else if (this.moveDir > 0) {
         input.right = true;
       }
-      input.crouch = input.crouch || this.holdCrouch;
       input.block = input.block || this.holdBlock;
     } else {
       this.moveDir = 0;
-      this.holdCrouch = false;
       this.holdBlock = false;
     }
 
     return input;
   }
 
-  /**
-   * Choose the CPU's next behaviour, emitting one-shot strikes immediately and
-   * scheduling held movement/guard for a short window.
-   * @param timeMs - The current Phaser clock time in ms.
-   * @param input - The input snapshot to mutate for one-shot edges.
-   */
-  private decide(timeMs: number, input: FighterInput): void {
-    const roll = Math.random();
+  private decide(
+    timeMs: number,
+    input: FighterInput,
+    self: Fighter,
+    target: Fighter,
+    absDist: number,
+    towardDir: number
+  ): void {
+    if (self.isBusy) {
+      return;
+    }
 
-    if (roll < 0.32) {
+    // Use signature special when meter is ready and opponent is in effective jutsu range.
+    if (self.isMeterReady) {
+      const power = getSpecialPower(self.characterId);
+      const effectiveRange =
+        power.kind === 'ranged' ? power.range - 20 : power.kind === 'aoe' ? power.range - 25 : 340;
+      if (absDist <= effectiveRange && Math.random() < 0.45) {
+        this.moveDir = 0;
+        this.holdBlock = false;
+        input.special = true;
+        return;
+      }
+    }
+
+    // Far away: aggressively close the distance (with occasional jump-ins).
+    if (absDist > 160) {
+      this.holdBlock = false;
+      this.moveDir = towardDir;
+      this.holdUntil = timeMs + Phaser.Math.Between(220, 420);
+      if (Math.random() < 0.14) {
+        input.jump = true;
+      }
       return;
     }
-    if (roll < 0.5) {
+
+    // Mid-range footsies: step in to pressure or throw a long poke.
+    if (absDist > 108) {
+      const roll = Math.random();
+      if (roll < 0.56) {
+        this.holdBlock = false;
+        this.moveDir = towardDir;
+        this.holdUntil = timeMs + Phaser.Math.Between(180, 300);
+      } else if (roll < 0.78) {
+        input.heavy = true;
+      } else if (roll < 0.9) {
+        this.holdBlock = false;
+        this.moveDir = towardDir;
+        this.holdUntil = timeMs + 260;
+        input.jump = true;
+      } else {
+        this.moveDir = -towardDir;
+        this.holdBlock = false;
+        this.holdUntil = timeMs + 180;
+      }
+      return;
+    }
+
+    // Close combat: pressure with fast light->heavy combos, kicks, and occasional guard/spacing.
+    const roll = Math.random();
+    if (target.isAttacking && roll < 0.55) {
+      this.moveDir = 0;
+      this.holdBlock = true;
+      this.holdUntil = timeMs + Phaser.Math.Between(220, 340);
+      return;
+    }
+
+    if (roll < 0.42) {
       input.light = true;
+      if (Math.random() < 0.65) {
+        this.comboFollowupAt = timeMs + Phaser.Math.Between(190, 250);
+      }
       return;
     }
-    if (roll < 0.63) {
+
+    if (roll < 0.72) {
       input.heavy = true;
       return;
     }
-    if (roll < 0.72) {
-      input.jump = true;
-      return;
-    }
-    if (roll < 0.9) {
-      this.moveDir = Math.random() < 0.5 ? -1 : 1;
-      this.holdUntil = timeMs + Phaser.Math.Between(350, 800);
+
+    if (roll < 0.84) {
+      this.moveDir = 0;
+      this.holdBlock = true;
+      this.holdUntil = timeMs + Phaser.Math.Between(180, 280);
       return;
     }
 
-    if (Math.random() < 0.5) {
-      this.holdCrouch = true;
-    } else {
-      this.holdBlock = true;
+    if (roll < 0.93) {
+      this.moveDir = -towardDir;
+      this.holdBlock = false;
+      this.holdUntil = timeMs + 190;
+      return;
     }
-    this.holdUntil = timeMs + Phaser.Math.Between(350, 800);
+
+    this.moveDir = towardDir;
+    this.holdBlock = false;
+    this.holdUntil = timeMs + 220;
+    input.jump = true;
   }
 }

@@ -15,21 +15,25 @@ interface CharacterSelectData {
 const P1_COLOR = 0x38bdf8;
 const P2_COLOR = 0xf43f5e;
 
-// Temporary: only these fighters are selectable in the Play flow. The full
-// roster (incl. the green boxer) remains available in the Fighter Playground.
-// Fighters from myFighters.ts come first, so a new fighter is P1's default pick.
-const SELECTABLE_FIGHTER_IDS = [...MY_FIGHTER_IDS, 'red-brawler', 'jiujitsu-fighter', 'bayasaa'];
+// Only fighters registered in myFighters.ts are selectable.
+const SELECTABLE_FIGHTER_IDS = [...MY_FIGHTER_IDS];
 const SELECTABLE_ROSTER = SELECTABLE_FIGHTER_IDS.flatMap((id) =>
   FIGHTER_CHARACTER_DEFINITIONS.filter((character) => character.id === id)
 );
 
-// Cards shrink so any roster size fits the 1180px usable width.
-const CARD_GAP = SELECTABLE_ROSTER.length > 3 ? 24 : 48;
-const CARD_WIDTH = Math.min(
-  300,
-  Math.floor((1180 - CARD_GAP * (SELECTABLE_ROSTER.length - 1)) / Math.max(1, SELECTABLE_ROSTER.length))
-);
-const CARD_HEIGHT = Math.round(CARD_WIDTH * 1.28);
+// Cards arrange into rows of up to 5 columns so large rosters stay clear and readable.
+const COLUMNS = SELECTABLE_ROSTER.length > 5 ? 5 : Math.max(1, SELECTABLE_ROSTER.length);
+const ROWS = Math.max(1, Math.ceil(SELECTABLE_ROSTER.length / COLUMNS));
+const COL_GAP = COLUMNS >= 5 || SELECTABLE_ROSTER.length > 3 ? 24 : 48;
+const ROW_GAP = ROWS >= 3 ? 32 : 34;
+const CARD_WIDTH =
+  ROWS >= 3
+    ? Math.min(176, Math.floor((1180 - COL_GAP * (COLUMNS - 1)) / COLUMNS))
+    : ROWS > 1
+      ? Math.min(200, Math.floor((1180 - COL_GAP * (COLUMNS - 1)) / COLUMNS))
+      : Math.min(300, Math.floor((1180 - COL_GAP * (COLUMNS - 1)) / COLUMNS));
+const CARD_HEIGHT =
+  ROWS >= 3 ? 148 : ROWS > 1 ? Math.round(CARD_WIDTH * 1.14) : Math.round(CARD_WIDTH * 1.28);
 
 interface PlayerCursor {
   index: number;
@@ -89,13 +93,21 @@ export class CharacterSelectScene extends BaseScene {
   private buildCards(): void {
     const { centerX, centerY } = this.cameras.main;
     const roster = SELECTABLE_ROSTER;
-    const gap = CARD_GAP;
-    const totalWidth = CARD_WIDTH * roster.length + gap * (roster.length - 1);
-    const startX = centerX - totalWidth / 2 + CARD_WIDTH / 2;
-    const y = centerY + 24;
+    const totalHeight = ROWS * CARD_HEIGHT + ROW_GAP * (ROWS - 1);
+    const gridCenterY = ROWS >= 3 ? centerY + 38 : ROWS > 1 ? centerY + 38 : centerY + 24;
+    const startY = gridCenterY - totalHeight / 2 + CARD_HEIGHT / 2;
+    const imageMaxSize = ROWS >= 3 ? 98 : ROWS > 1 ? Math.round(CARD_WIDTH * 0.72) : CARD_WIDTH - 36;
+    const imageOffsetY = ROWS >= 3 ? -14 : ROWS > 1 ? -16 : -34;
 
     roster.forEach((character, index) => {
-      const x = startX + index * (CARD_WIDTH + gap);
+      const row = Math.floor(index / COLUMNS);
+      const col = index % COLUMNS;
+      const itemsInRow = Math.min(COLUMNS, roster.length - row * COLUMNS);
+      const rowWidth = CARD_WIDTH * itemsInRow + COL_GAP * (itemsInRow - 1);
+      const rowStartX = centerX - rowWidth / 2 + CARD_WIDTH / 2;
+      const x = rowStartX + col * (CARD_WIDTH + COL_GAP);
+      const y = startY + row * (CARD_HEIGHT + ROW_GAP);
+
       this.cardPositions.push({ x, y });
 
       const card = createSelectionCard(this, {
@@ -105,8 +117,8 @@ export class CharacterSelectScene extends BaseScene {
         height: CARD_HEIGHT,
         title: character.label,
         texture: this.textures.exists(character.portrait.key) ? character.portrait.key : undefined,
-        imageMaxSize: CARD_WIDTH - 36,
-        imageOffsetY: -34,
+        imageMaxSize,
+        imageOffsetY,
         onHover: () => this.hoverCard(index),
         onClick: () => this.clickCard(index)
       });
@@ -167,20 +179,30 @@ export class CharacterSelectScene extends BaseScene {
     }
 
     if (this.mode === '1v1') {
-      keyboard.on('keydown-A', () => this.movePlayer(this.p1, -1));
-      keyboard.on('keydown-D', () => this.movePlayer(this.p1, 1));
-      keyboard.on('keydown-LEFT', () => this.movePlayer(this.p2, -1));
-      keyboard.on('keydown-RIGHT', () => this.movePlayer(this.p2, 1));
+      keyboard.on('keydown-A', () => this.movePlayer(this.p1, -1, 0));
+      keyboard.on('keydown-D', () => this.movePlayer(this.p1, 1, 0));
+      keyboard.on('keydown-W', () => this.movePlayer(this.p1, 0, -1));
+      keyboard.on('keydown-S', () => this.movePlayer(this.p1, 0, 1));
+      keyboard.on('keydown-LEFT', () => this.movePlayer(this.p2, -1, 0));
+      keyboard.on('keydown-RIGHT', () => this.movePlayer(this.p2, 1, 0));
+      keyboard.on('keydown-UP', () => this.movePlayer(this.p2, 0, -1));
+      keyboard.on('keydown-DOWN', () => this.movePlayer(this.p2, 0, 1));
       keyboard.on('keydown-SPACE', () => this.confirmPlayer(this.p1));
       keyboard.on('keydown-F', () => this.confirmPlayer(this.p1));
       keyboard.on('keydown-ENTER', () => this.confirmPlayer(this.p2));
     } else {
-      const moveLeft = (): void => this.movePlayer(this.p1, -1);
-      const moveRight = (): void => this.movePlayer(this.p1, 1);
+      const moveLeft = (): void => this.movePlayer(this.p1, -1, 0);
+      const moveRight = (): void => this.movePlayer(this.p1, 1, 0);
+      const moveUp = (): void => this.movePlayer(this.p1, 0, -1);
+      const moveDown = (): void => this.movePlayer(this.p1, 0, 1);
       keyboard.on('keydown-A', moveLeft);
       keyboard.on('keydown-LEFT', moveLeft);
       keyboard.on('keydown-D', moveRight);
       keyboard.on('keydown-RIGHT', moveRight);
+      keyboard.on('keydown-W', moveUp);
+      keyboard.on('keydown-UP', moveUp);
+      keyboard.on('keydown-S', moveDown);
+      keyboard.on('keydown-DOWN', moveDown);
       keyboard.on('keydown-SPACE', () => this.confirmPlayer(this.p1));
       keyboard.on('keydown-F', () => this.confirmPlayer(this.p1));
       keyboard.on('keydown-ENTER', () => this.confirmPlayer(this.p1));
@@ -191,27 +213,58 @@ export class CharacterSelectScene extends BaseScene {
   }
 
   /**
-   * Moves a player's cursor by one step. The two players can never select the
-   * same fighter: when a move would land on the other player's card the cursor
-   * hops over it if a free card exists, otherwise (e.g. only two fighters) the
-   * two players simply swap picks.
-   * @param cursor - The player cursor to move.
-   * @param direction - -1 for left, +1 for right.
+   * Moves a player's cursor across the roster grid. The two players can never
+   * select the same fighter: when a move would land on the other player's card
+   * the cursor hops over it (or shifts on the target row) if a free card
+   * exists, otherwise swaps picks when the other player isn't locked.
    */
-  private movePlayer(cursor: PlayerCursor, direction: number): void {
-    if (this.transitioning || cursor.locked) {
+  private movePlayer(cursor: PlayerCursor, dx: number, dy: number): void {
+    if (this.transitioning || cursor.locked || this.cards.length === 0) {
       return;
     }
 
     const count = this.cards.length;
     const other = this.otherCursor(cursor);
-    let next = Phaser.Math.Wrap(cursor.index + direction, 0, count);
+    const computeTarget = (fromIndex: number, stepX: number, stepY: number): number => {
+      if (stepY !== 0) {
+        const currentRow = Math.floor(fromIndex / COLUMNS);
+        const currentCol = fromIndex % COLUMNS;
+        const targetRow = Phaser.Math.Wrap(currentRow + stepY, 0, ROWS);
+        return Math.min(count - 1, targetRow * COLUMNS + currentCol);
+      }
+
+      return Phaser.Math.Wrap(fromIndex + stepX, 0, count);
+    };
+
+    let next = computeTarget(cursor.index, dx, dy);
 
     if (this.mode === '1v1' && next === other.index) {
-      const skip = Phaser.Math.Wrap(next + direction, 0, count);
+      const skip = computeTarget(next, dx, dy);
 
-      if (skip !== cursor.index) {
+      if (skip !== cursor.index && skip !== other.index) {
         next = skip;
+      } else if (dy !== 0 && COLUMNS > 1) {
+        const targetRow = Math.floor(next / COLUMNS);
+        const targetCol = next % COLUMNS;
+        let found: number | undefined;
+        for (let offset = 1; offset < COLUMNS; offset++) {
+          const candidate = targetRow * COLUMNS + Phaser.Math.Wrap(targetCol + offset, 0, COLUMNS);
+          if (candidate < count && candidate !== other.index && candidate !== cursor.index) {
+            found = candidate;
+            break;
+          }
+        }
+        if (found !== undefined) {
+          next = found;
+        } else if (!other.locked) {
+          other.index = cursor.index;
+          cursor.index = next;
+          this.refreshCursor(cursor);
+          this.refreshCursor(other);
+          return;
+        } else {
+          return;
+        }
       } else if (!other.locked) {
         other.index = cursor.index;
         cursor.index = next;

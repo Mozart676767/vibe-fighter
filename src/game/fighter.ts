@@ -11,7 +11,15 @@ import {
   type HeroAnimationDefinition,
   type HeroBoundsFrame
 } from './hero';
-import { spawnChargeAura } from './vfx';
+import {
+  getSpecialPower,
+  spawnSpecialChargeFx,
+  spawnSpecialDashTrailFx,
+  spawnSpecialExecuteFx,
+  spawnSpecialTeleportFx,
+  type SpecialPowerConfig,
+  type SpriteSnapshot
+} from './specialPowers';
 import type {
   AttackKind,
   AttackProfile,
@@ -29,11 +37,11 @@ const BLOCKSTUN_SECONDS = 0.14;
 /** Full meter value; a special requires (and consumes) a full bar. */
 const METER_MAX = 100;
 /** Meter gained by the attacker when a normal attack lands. */
-const METER_GAIN_ON_HIT = 12;
+const METER_GAIN_ON_HIT = 16;
 /** Meter gained by the defender when taking a hit. */
-const METER_GAIN_ON_TAKE = 7;
+const METER_GAIN_ON_TAKE = 10;
 /** Meter gained by both sides on a blocked hit. */
-const METER_GAIN_ON_BLOCK = 4;
+const METER_GAIN_ON_BLOCK = 6;
 /**
  * After the charge wind-up completes, the fighter holds the charged pose for this
  * long before the special executes — the "super freeze" that lets the cut-in
@@ -175,6 +183,14 @@ export class Fighter {
   private meter = 0;
   private appliedScale = 0;
   private readonly hasSpecial: boolean;
+  private readonly specialPower: SpecialPowerConfig;
+  private targetX: number | null = null;
+  private specialActiveTimer = 0;
+  private specialHitsRemaining = 0;
+  private specialHitCooldown = 0;
+  private specialTrailTimer = 0;
+  private specialAnimDone = false;
+  private specialFreezeTimer?: Phaser.Time.TimerEvent;
   private readonly onSpecialStart?: (fighter: Fighter) => void;
 
   constructor(options: FighterOptions) {
@@ -189,6 +205,7 @@ export class Fighter {
     this.posX = Phaser.Math.Clamp(options.x, options.minX, options.maxX);
     this.actionKeys = this.resolveActionKeys();
     this.hasSpecial = findCharacterAnimationKeyByAction(this.character.id, 'special') !== null;
+    this.specialPower = getSpecialPower(this.character.id);
     this.maxHealth = this.combat().maxHealth;
     this.health = this.maxHealth;
     this.build(options.depth ?? 5);
@@ -222,6 +239,21 @@ export class Fighter {
   /** Whether the fighter has been knocked out this round. */
   get isDefeated(): boolean {
     return this.defeated;
+  }
+
+  /** Whether the fighter is currently mid-attack swing. */
+  get isAttacking(): boolean {
+    return this.currentAttackKind() !== null;
+  }
+
+  /** Whether the fighter is charging or executing a special move. */
+  get isSpecialActive(): boolean {
+    return this.locked && (this.currentAnimKey === this.actionKeys.specialCharge || this.specialActiveTimer > 0);
+  }
+
+  /** Whether the fighter is currently locked in an action or hitstun. */
+  get isBusy(): boolean {
+    return this.locked || this.hitstunTimer > 0;
   }
 
   /** The fighter's special meter charge (0..1). */
@@ -323,6 +355,7 @@ export class Fighter {
    * @param targetX - The world x the fighter should face toward.
    */
   faceToward(targetX: number): void {
+    this.targetX = targetX;
     if (this.locked) {
       return;
     }
@@ -377,6 +410,27 @@ export class Fighter {
       return null;
     }
 
+    if (kind === 'special' && this.specialActiveTimer > 0 && this.specialHitsRemaining > 0) {
+      const power = this.specialPower;
+      const top = this.groundY - power.hitboxHeight;
+      const rect =
+        power.kind === 'aoe'
+          ? new Phaser.Geom.Rectangle(this.posX - power.range, top, power.range * 2, power.hitboxHeight)
+          : new Phaser.Geom.Rectangle(
+              this.facing === 1 ? this.posX - 20 : this.posX - power.range,
+              top,
+              power.range + 20,
+              power.hitboxHeight
+            );
+
+      return {
+        rect,
+        profile: getAttackProfile(this.combat(), 'special'),
+        signature: this.attackId,
+        finisher: this.specialHitsRemaining <= 1
+      };
+    }
+
     const animation = this.currentAnimation();
     if (!animation) {
       return null;
@@ -401,6 +455,14 @@ export class Fighter {
   /** Marks the current swing as having connected so it can't hit again. */
   markAttackConnected(): void {
     this.attackConnected = true;
+
+    if (this.currentAttackKind() === 'special' && this.specialHitsRemaining > 0) {
+      this.specialHitsRemaining -= 1;
+      if (this.specialHitsRemaining > 0) {
+        this.specialHitCooldown = this.specialPower.hitIntervalMs / 1000;
+        this.attackId += 1;
+      }
+    }
   }
 
   /**
@@ -474,6 +536,7 @@ export class Fighter {
 
     this.health = Math.max(0, this.health - profile.damage);
     this.knockbackVel = attackerFacing * profile.knockback;
+    this.clearSpecialTimers();
 
     if (this.health <= 0) {
       this.defeated = true;
@@ -517,6 +580,7 @@ export class Fighter {
     this.meter = 0;
     this.currentAnimKey = '';
     this.currentReverse = false;
+    this.clearSpecialTimers();
 
     this.sprite.setPosition(this.posX, this.groundY).setFlipX(this.facing === 1);
     this.playState(this.actionKeys.idle, true);
@@ -564,6 +628,10 @@ export class Fighter {
       return;
     }
 
+    if (this.specialActiveTimer > 0) {
+      this.updateSpecialExecution(seconds);
+    }
+
     if (!this.grounded) {
       this.updateAirborne(seconds, input);
     } else if (!this.locked) {
@@ -576,6 +644,7 @@ export class Fighter {
 
   /** Destroys the fighter's display objects. */
   destroy(): void {
+    this.clearSpecialTimers();
     this.sprite?.removeAllListeners();
     this.sprite?.destroy();
     this.shadow?.destroy();
@@ -861,10 +930,8 @@ export class Fighter {
   }
 
   /**
-   * Performs the meter special: consumes the full meter, plays the charge
-   * (wind-up) animation, then chains into the multi-hit execution animation, and
-   * finally returns to idle. The execution's attack-active spans each open a new
-   * hit window so the move lands a combo.
+   * Performs the meter special: consumes the full meter, plays the signature
+   * chakra charge wind-up + cut-in, then launches the character's unique jutsu.
    */
   private startSpecial(): void {
     this.locked = true;
@@ -872,21 +939,34 @@ export class Fighter {
     this.currentReverse = false;
     this.attackConnected = true;
     this.attackActiveLast = false;
+    this.clearSpecialTimers();
 
     this.onSpecialStart?.(this);
-    spawnChargeAura(this.scene, this.sprite.x, this.sprite.y - this.sprite.displayHeight * 0.45);
+    spawnSpecialChargeFx(
+      {
+        scene: this.scene,
+        x: this.sprite.x,
+        groundY: this.groundY,
+        bodyHeight: this.sprite.displayHeight,
+        facing: this.facing,
+        targetX: this.targetX,
+        sprite: this.spriteSnapshot()
+      },
+      this.specialPower
+    );
 
     this.currentAnimKey = this.actionKeys.specialCharge;
     this.sprite.play({ key: this.actionKeys.specialCharge, repeat: 0 }, true);
     this.sprite.once(`animationcomplete-${this.actionKeys.specialCharge}`, () => {
-      if (this.defeated) {
+      if (this.defeated || this.hitstunTimer > 0 || !this.locked) {
         return;
       }
 
       // Super freeze: hold the charged pose so the cut-in cinematic peaks before
       // the move launches.
-      this.scene.time.delayedCall(SUPER_FREEZE_MS, () => {
-        if (!this.defeated) {
+      this.specialFreezeTimer = this.scene.time.delayedCall(SUPER_FREEZE_MS, () => {
+        this.specialFreezeTimer = undefined;
+        if (!this.defeated && this.hitstunTimer <= 0 && this.locked) {
           this.executeSpecial();
         }
       });
@@ -894,24 +974,133 @@ export class Fighter {
   }
 
   /**
-   * Launches the multi-hit special execution animation after the charge/super
-   * freeze, then returns to idle. Each attack-active span opens a fresh hit
-   * window so the move lands a combo.
+   * Launches the character's signature special jutsu (dash, Flying Raijin
+   * teleport, ranged wave, or Shinra Tensei AoE) and plays its custom VFX.
    */
   private executeSpecial(): void {
+    const power = this.specialPower;
+
+    if (power.kind === 'teleport' && this.targetX !== null) {
+      spawnSpecialTeleportFx(this.scene, this.posX, this.groundY, this.sprite.displayHeight);
+      const warpX = Phaser.Math.Clamp(this.targetX - this.facing * 85, this.minX, this.maxX);
+      this.posX = warpX;
+      this.sprite.x = warpX;
+      this.shadow.x = warpX;
+      const desiredFacing: 1 | -1 = this.targetX >= this.posX ? 1 : -1;
+      if (desiredFacing !== this.facing) {
+        this.facing = desiredFacing;
+        this.sprite.setFlipX(this.facing === 1);
+      }
+      spawnSpecialTeleportFx(this.scene, this.posX, this.groundY, this.sprite.displayHeight);
+    }
+
     this.currentAnimKey = this.actionKeys.special;
     this.attackId += 1;
     this.attackConnected = false;
-    this.attackActiveLast = false;
+    this.attackActiveLast = true;
+    this.specialActiveTimer = power.durationMs / 1000;
+    this.specialHitsRemaining = power.hitCount;
+    this.specialHitCooldown = 0;
+    this.specialTrailTimer = 0;
+    this.specialAnimDone = false;
+
+    spawnSpecialExecuteFx(
+      {
+        scene: this.scene,
+        x: this.posX,
+        groundY: this.groundY,
+        bodyHeight: this.sprite.displayHeight,
+        facing: this.facing,
+        targetX: this.targetX,
+        sprite: this.spriteSnapshot()
+      },
+      power
+    );
+
     this.sprite.play({ key: this.actionKeys.special, repeat: 0 }, true);
     this.sprite.once(`animationcomplete-${this.actionKeys.special}`, () => {
-      this.locked = false;
-      this.currentAnimKey = '';
-
-      if (this.grounded) {
-        this.playState(this.actionKeys.idle, true);
+      this.specialAnimDone = true;
+      if (this.specialActiveTimer <= 0) {
+        this.finishSpecial();
       }
     });
+  }
+
+  private updateSpecialExecution(seconds: number): void {
+    const power = this.specialPower;
+    this.specialActiveTimer = Math.max(0, this.specialActiveTimer - seconds);
+
+    if (this.specialHitCooldown > 0) {
+      this.specialHitCooldown = Math.max(0, this.specialHitCooldown - seconds);
+      if (this.specialHitCooldown === 0 && this.specialHitsRemaining > 0) {
+        this.attackConnected = false;
+      }
+    }
+
+    if (power.dashSpeed > 0 && this.specialActiveTimer > 0.08) {
+      const distToTarget = this.targetX !== null ? (this.targetX - this.posX) * this.facing : Number.POSITIVE_INFINITY;
+      if (distToTarget > 72 || distToTarget < -40) {
+        this.posX = Phaser.Math.Clamp(this.posX + this.facing * power.dashSpeed * seconds, this.minX, this.maxX);
+        this.sprite.x = this.posX;
+        this.updateShadow();
+      }
+
+      this.specialTrailTimer -= seconds;
+      if (this.specialTrailTimer <= 0) {
+        this.specialTrailTimer = 0.055;
+        spawnSpecialDashTrailFx(
+          {
+            scene: this.scene,
+            x: this.posX,
+            groundY: this.groundY,
+            bodyHeight: this.sprite.displayHeight,
+            facing: this.facing,
+            targetX: this.targetX,
+            sprite: this.spriteSnapshot()
+          },
+          power
+        );
+      }
+    }
+
+    if (this.specialActiveTimer <= 0 && this.specialAnimDone) {
+      this.finishSpecial();
+    }
+  }
+
+  private spriteSnapshot(): SpriteSnapshot {
+    return {
+      textureKey: this.sprite.texture.key,
+      frameName: this.sprite.frame.name,
+      scaleX: this.sprite.scaleX,
+      scaleY: this.sprite.scaleY,
+      originX: this.sprite.originX,
+      originY: this.sprite.originY,
+      flipX: this.sprite.flipX,
+      depth: this.sprite.depth
+    };
+  }
+
+  private finishSpecial(): void {
+    this.locked = false;
+    this.currentAnimKey = '';
+    this.specialHitsRemaining = 0;
+    this.specialActiveTimer = 0;
+    this.specialHitCooldown = 0;
+
+    if (this.grounded) {
+      this.playState(this.actionKeys.idle, true);
+    }
+  }
+
+  private clearSpecialTimers(): void {
+    this.specialFreezeTimer?.remove(false);
+    this.specialFreezeTimer = undefined;
+    this.specialActiveTimer = 0;
+    this.specialHitsRemaining = 0;
+    this.specialHitCooldown = 0;
+    this.specialTrailTimer = 0;
+    this.specialAnimDone = false;
   }
 
   /**
@@ -920,6 +1109,10 @@ export class Fighter {
    * span (multi-hit specials). Single-span normal attacks are unaffected.
    */
   private updateAttackWindow(): void {
+    if (this.specialActiveTimer > 0) {
+      return;
+    }
+
     const active = this.isAttackActiveFrame();
 
     if (active && !this.attackActiveLast) {

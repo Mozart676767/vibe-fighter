@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 
 import { getCharacterDefinition } from './hero';
-import type { VfxColor } from './vfx';
+import { VFX_HEX, type VfxColor } from './vfx';
 
 /**
  * Base render depth for the super cut-in. Sits above the HUD (100) and round
@@ -18,11 +18,7 @@ const DEPTH_LETTERBOX = CUTIN_DEPTH + 4;
 const DEPTH_FLASH = CUTIN_DEPTH + 5;
 
 /** Accent colour per cut-in flavour. */
-const COLOR: Record<VfxColor, number> = {
-  red: 0xff5a5a,
-  gold: 0xffd24a,
-  blue: 0x7ec8ff
-};
+const COLOR: Record<VfxColor, number> = VFX_HEX;
 
 /** Cinematic timeline (ms): slide the portrait in, hold the pose, sweep it out. */
 const SLIDE_IN_MS = 240;
@@ -42,6 +38,8 @@ export interface SuperCutInOptions {
   side: 'left' | 'right';
   /** Accent colour for the wash, streaks, and burst (default gold). */
   color?: VfxColor;
+  /** Signature jutsu / special move title shown beneath the character name. */
+  subtitle?: string;
 }
 
 /**
@@ -109,12 +107,13 @@ export function playSuperCutIn(scene: Phaser.Scene, options: SuperCutInOptions):
   // 4) The big portrait slamming in from the side, masked into a trapezium.
   buildPortrait(scene, track, options, { width, height, fromLeft, color });
 
-  // 5) Character name caption, entering from the opposite side.
+  // 5) Character name caption (+ signature jutsu title), entering from the opposite side.
   const captionFromX = fromLeft ? width + 200 : -200;
   const captionRestX = fromLeft ? width - 40 : 40;
+  const captionY = options.subtitle ? height * 0.45 : height * 0.5;
   const caption = track(
     scene.add
-      .text(captionFromX, height * 0.5, getCharacterDefinition(options.characterId).label.toUpperCase(), {
+      .text(captionFromX, captionY, getCharacterDefinition(options.characterId).label.toUpperCase(), {
         color: '#f8fafc',
         fontFamily: 'monospace',
         fontStyle: 'bold',
@@ -128,6 +127,26 @@ export function playSuperCutIn(scene: Phaser.Scene, options: SuperCutInOptions):
   );
   scene.tweens.add({ targets: caption, x: captionRestX, duration: SLIDE_IN_MS, ease: 'Back.Out' });
   scene.tweens.add({ targets: caption, x: captionFromX, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Back.In' });
+
+  if (options.subtitle) {
+    const accentHex = `#${color.toString(16).padStart(6, '0')}`;
+    const sub = track(
+      scene.add
+        .text(captionFromX, height * 0.55, options.subtitle.toUpperCase(), {
+          color: accentHex,
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+          fontSize: '30px',
+          stroke: '#05070d',
+          strokeThickness: 6
+        })
+        .setOrigin(fromLeft ? 1 : 0, 0.5)
+        .setScrollFactor(0)
+        .setDepth(DEPTH_CAPTION)
+    );
+    scene.tweens.add({ targets: sub, x: captionRestX, duration: SLIDE_IN_MS + 30, ease: 'Back.Out' });
+    scene.tweens.add({ targets: sub, x: captionFromX, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Back.In' });
+  }
 
   // 6) Cinematic letterbox bars framing the panel.
   const topBar = track(

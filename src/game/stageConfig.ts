@@ -1,3 +1,7 @@
+import finalValleyUrl from '../assets/images/stage_final_valley_1794715906288.jpg';
+import martialArenaUrl from '../assets/images/stage_martial_arena_1794715906951.jpg';
+import sakuraShrineUrl from '../assets/images/stage_sakura_shrine_1794715907293.jpg';
+import shibuyaNightUrl from '../assets/images/stage_shibuya_night_1794715906880.jpg';
 import type { ImageAsset } from './assets';
 import type { StagePreviewDebugState } from './types';
 
@@ -47,10 +51,75 @@ export const STAGE_DEFINITIONS: StageDefinition[] = [
     url: `${STAGE_ASSET_ROOT}/rooftop-sunset-stage.png`,
     width: 2048,
     height: 768
+  },
+  {
+    id: 'final-valley',
+    label: 'Final Valley',
+    key: 'final-valley-stage',
+    url: finalValleyUrl,
+    width: 1376,
+    height: 768
+  },
+  {
+    id: 'martial-arena',
+    label: 'Martial Arena',
+    key: 'martial-arena-stage',
+    url: martialArenaUrl,
+    width: 1376,
+    height: 768
+  },
+  {
+    id: 'shibuya-night',
+    label: 'Shibuya Night',
+    key: 'shibuya-night-stage',
+    url: shibuyaNightUrl,
+    width: 1376,
+    height: 768
+  },
+  {
+    id: 'sakura-shrine',
+    label: 'Sakura Shrine',
+    key: 'sakura-shrine-stage',
+    url: sakuraShrineUrl,
+    width: 1376,
+    height: 768
   }
 ];
 
-export const STAGE_IMAGE_ASSETS: ImageAsset[] = [];
+export const STAGE_IMAGE_ASSETS: ImageAsset[] = [
+  {
+    kind: 'image',
+    key: 'final-valley-stage',
+    url: finalValleyUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Final Valley canyon waterfall stage background'
+  },
+  {
+    kind: 'image',
+    key: 'martial-arena-stage',
+    url: martialArenaUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Martial Arena tournament stage background'
+  },
+  {
+    kind: 'image',
+    key: 'shibuya-night-stage',
+    url: shibuyaNightUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Shibuya Night neon street crossing stage background'
+  },
+  {
+    kind: 'image',
+    key: 'sakura-shrine-stage',
+    url: sakuraShrineUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Sakura Shrine sunset courtyard stage background'
+  }
+];
 
 export const DEFAULT_STAGE_PREVIEW_STATE: StagePreviewDebugState = {
   stageId: STAGE_DEFINITIONS[0].id,

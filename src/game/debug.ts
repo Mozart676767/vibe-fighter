@@ -1,11 +1,13 @@
 import { createStore, type Store } from './store';
 import { DEFAULT_BACKGROUND_GYM_STATE } from './backgroundConfig';
 import { createDefaultFighterPlaygroundState } from './fighterConfig';
-import { RED_BRAWLER_ANIMATION_KEYS, RED_BRAWLER_CHARACTER_ID } from './redBrawler';
+import { MY_FIGHTERS } from './myFighters';
 import { createDefaultLevelEditorDebugState } from './levelEditor';
 import { DEFAULT_STAGE_PREVIEW_STATE } from './stageConfig';
 import { DEFAULT_TILE_GYM_STATE } from './tileConfig';
 import { SCENE_KEYS, type DebugState } from './types';
+
+const DEFAULT_CHARACTER_ID = MY_FIGHTERS[0]?.id ?? 'naruto';
 
 export const DEFAULT_DEBUG_STATE: DebugState = {
   activeScene: SCENE_KEYS.Boot,
@@ -21,8 +23,8 @@ export const DEFAULT_DEBUG_STATE: DebugState = {
   activeLevelId: 'level-1',
   configSaveStatus: 'Not saved this session',
   characterGym: {
-    characterId: RED_BRAWLER_CHARACTER_ID,
-    animationKey: RED_BRAWLER_ANIMATION_KEYS.idle,
+    characterId: DEFAULT_CHARACTER_ID,
+    animationKey: `${DEFAULT_CHARACTER_ID}-idle`,
     paused: false,
     playbackSpeed: 1,
     frame: 0,

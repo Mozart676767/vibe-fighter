@@ -5,20 +5,32 @@ import { FIGHTING_UI_ATLAS_TEXTURE_KEY } from './fightingUiAtlas';
 /** Render depth for combat VFX: above fighters, below the HUD. */
 const VFX_DEPTH = 90;
 
-/** Tint/spark colour keyed to the kind of impact. */
-export type VfxColor = 'red' | 'gold' | 'blue';
+/** Tint/spark colour keyed to the kind of impact or character chakra. */
+export type VfxColor = 'red' | 'gold' | 'blue' | 'cyan' | 'purple' | 'green' | 'pink' | 'orange';
 
 const SPARK_FRAME: Record<VfxColor, string> = {
   red: 'icon-hit-red',
   gold: 'icon-hit-gold',
-  blue: 'icon-hit-blue'
+  blue: 'icon-hit-blue',
+  cyan: 'icon-hit-blue',
+  purple: 'icon-hit-blue',
+  green: 'icon-hit-gold',
+  pink: 'icon-hit-red',
+  orange: 'icon-hit-gold'
 };
 
-const FLASH_TINT: Record<VfxColor, number> = {
+export const VFX_HEX: Record<VfxColor, number> = {
   red: 0xff5a5a,
   gold: 0xffd24a,
-  blue: 0x7ec8ff
+  blue: 0x38bdf8,
+  cyan: 0x22d3ee,
+  purple: 0xa855f7,
+  green: 0x22c55e,
+  pink: 0xf472b6,
+  orange: 0xf97316
 };
+
+const FLASH_TINT: Record<VfxColor, number> = VFX_HEX;
 
 /**
  * Spawns a short-lived hit spark (an atlas impact icon) at a contact point that
@@ -26,7 +38,7 @@ const FLASH_TINT: Record<VfxColor, number> = {
  * @param scene - The owning scene.
  * @param x - World x of the contact point.
  * @param y - World y of the contact point.
- * @param color - Spark colour (red clean hit, blue blocked, gold finisher).
+ * @param color - Spark colour (red clean hit, blue blocked, gold finisher, or chakra colour).
  * @param scale - Peak display scale of the spark (default 1).
  */
 export function spawnHitSpark(
@@ -49,6 +61,10 @@ export function spawnHitSpark(
     .setScale(0.2 * scale)
     .setAngle(Phaser.Math.Between(-30, 30))
     .setAlpha(1);
+
+  if (color !== 'red' && color !== 'gold' && color !== 'blue') {
+    spark.setTint(FLASH_TINT[color]);
+  }
 
   scene.tweens.add({
     targets: spark,

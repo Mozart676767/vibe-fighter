@@ -41,7 +41,7 @@ export class LevelSelectScene extends BaseScene {
     this.registerInput();
     this.setSelection(0);
 
-    this.createFooterHint('← → / A D to choose • Enter / Space to confirm • Esc to go back');
+    this.createFooterHint('← → ↑ ↓ / WASD to choose • Enter / Space to confirm • Esc to go back');
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.cards.forEach((card) => card.destroy());
@@ -51,22 +51,36 @@ export class LevelSelectScene extends BaseScene {
 
   private buildCards(): void {
     const { centerX, centerY } = this.cameras.main;
-    const cardWidth = 380;
-    const cardHeight = 300;
-    const gap = 60;
-    const totalWidth = cardWidth * STAGE_DEFINITIONS.length + gap * (STAGE_DEFINITIONS.length - 1);
-    const startX = centerX - totalWidth / 2 + cardWidth / 2;
+    const count = STAGE_DEFINITIONS.length;
+    const columns = count > 3 ? 3 : Math.max(1, count);
+    const rows = Math.max(1, Math.ceil(count / columns));
+    const cardWidth = rows > 1 ? 330 : 380;
+    const cardHeight = rows > 1 ? 216 : 300;
+    const colGap = rows > 1 ? 36 : 60;
+    const rowGap = 24;
+
+    const totalHeight = rows * cardHeight + rowGap * (rows - 1);
+    const gridCenterY = rows > 1 ? centerY + 34 : centerY + 10;
+    const startY = gridCenterY - totalHeight / 2 + cardHeight / 2;
 
     STAGE_DEFINITIONS.forEach((stage, index) => {
+      const row = Math.floor(index / columns);
+      const col = index % columns;
+      const itemsInRow = Math.min(columns, count - row * columns);
+      const rowWidth = cardWidth * itemsInRow + colGap * (itemsInRow - 1);
+      const startX = centerX - rowWidth / 2 + cardWidth / 2;
+      const x = startX + col * (cardWidth + colGap);
+      const y = startY + row * (cardHeight + rowGap);
+
       const card = createSelectionCard(this, {
-        x: startX + index * (cardWidth + gap),
-        y: centerY + 10,
+        x,
+        y,
         width: cardWidth,
         height: cardHeight,
         title: stage.label,
         texture: this.textures.exists(stage.key) ? stage.key : undefined,
         imageMaxSize: cardWidth - 28,
-        imageOffsetY: -28,
+        imageOffsetY: rows > 1 ? -18 : -28,
         onHover: () => this.setSelection(index),
         onClick: () => this.confirm(index)
       });
@@ -81,18 +95,39 @@ export class LevelSelectScene extends BaseScene {
       return;
     }
 
-    keyboard.on('keydown-LEFT', () => this.moveSelection(-1));
-    keyboard.on('keydown-A', () => this.moveSelection(-1));
-    keyboard.on('keydown-RIGHT', () => this.moveSelection(1));
-    keyboard.on('keydown-D', () => this.moveSelection(1));
+    keyboard.on('keydown-LEFT', () => this.moveGrid(-1, 0));
+    keyboard.on('keydown-A', () => this.moveGrid(-1, 0));
+    keyboard.on('keydown-RIGHT', () => this.moveGrid(1, 0));
+    keyboard.on('keydown-D', () => this.moveGrid(1, 0));
+    keyboard.on('keydown-UP', () => this.moveGrid(0, -1));
+    keyboard.on('keydown-W', () => this.moveGrid(0, -1));
+    keyboard.on('keydown-DOWN', () => this.moveGrid(0, 1));
+    keyboard.on('keydown-S', () => this.moveGrid(0, 1));
     keyboard.on('keydown-ENTER', () => this.confirm(this.selectedIndex));
     keyboard.on('keydown-SPACE', () => this.confirm(this.selectedIndex));
     keyboard.on('keydown-ESC', () => this.scene.start(SCENE_KEYS.ModeSelect));
     keyboard.on('keydown-BACKSPACE', () => this.scene.start(SCENE_KEYS.ModeSelect));
   }
 
-  private moveSelection(direction: number): void {
-    const next = Phaser.Math.Wrap(this.selectedIndex + direction, 0, this.cards.length);
+  private moveGrid(dx: number, dy: number): void {
+    const count = this.cards.length;
+    if (count === 0) {
+      return;
+    }
+
+    const columns = count > 3 ? 3 : Math.max(1, count);
+    const rows = Math.max(1, Math.ceil(count / columns));
+
+    if (dy !== 0) {
+      const currentRow = Math.floor(this.selectedIndex / columns);
+      const currentCol = this.selectedIndex % columns;
+      const targetRow = Phaser.Math.Wrap(currentRow + dy, 0, rows);
+      const next = Math.min(count - 1, targetRow * columns + currentCol);
+      this.setSelection(next);
+      return;
+    }
+
+    const next = Phaser.Math.Wrap(this.selectedIndex + dx, 0, count);
     this.setSelection(next);
   }
 

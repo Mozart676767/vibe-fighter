@@ -19,6 +19,7 @@ import {
   FIGHTING_UI_ATLAS_SIZE,
   FIGHTING_UI_ATLAS_TEXTURE_KEY
 } from './fightingUiAtlas';
+import { STAGE_IMAGE_ASSETS } from './stageConfig';
 
 export interface ImageAsset {
   kind: 'image';
@@ -110,6 +111,7 @@ export const STARTER_ASSETS: StarterAsset[] = [
   ...CHARACTER_ASSETS,
   ...TILE_IMAGE_ASSETS,
   ...UI_IMAGE_ASSETS,
+  ...STAGE_IMAGE_ASSETS,
   ...STARTER_AUDIO_ASSETS
 ];
 
