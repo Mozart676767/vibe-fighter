@@ -57,6 +57,7 @@ export interface SelectionCard {
   container: Phaser.GameObjects.Container;
   setSelected(selected: boolean, accent?: number): void;
   setDimmed(dimmed: boolean): void;
+  setTexture(texture: string): void;
   flashLock(onComplete: () => void): void;
   destroy(): void;
 }
@@ -93,13 +94,32 @@ export function createSelectionCard(scene: Phaser.Scene, config: SelectionCardCo
     .setStrokeStyle(2, CARD_BASE_STROKE, 1);
 
   const children: Phaser.GameObjects.GameObject[] = [background];
+  const maxSize = config.imageMaxSize ?? Math.min(config.width - 24, config.height - 80);
+  const imageOffsetY = config.imageOffsetY ?? -18;
+  let image: Phaser.GameObjects.Image | undefined;
 
-  if (config.texture) {
-    const image = scene.add.image(0, config.imageOffsetY ?? -18, config.texture).setOrigin(0.5);
-    const maxSize = config.imageMaxSize ?? Math.min(config.width - 24, config.height - 80);
+  const applyTexture = (textureKey: string, container?: Phaser.GameObjects.Container): void => {
+    if (!scene.textures.exists(textureKey)) {
+      return;
+    }
+
+    if (!image) {
+      image = scene.add.image(0, imageOffsetY, textureKey).setOrigin(0.5);
+      if (container) {
+        container.addAt(image, 1);
+      } else {
+        children.push(image);
+      }
+    } else {
+      image.setTexture(textureKey);
+    }
+
     const sourceSize = Math.max(image.width, image.height) || maxSize;
     image.setScale(maxSize / sourceSize);
-    children.push(image);
+  };
+
+  if (config.texture) {
+    applyTexture(config.texture);
   }
 
   const subtitleY = config.height / 2 - 20;
@@ -148,6 +168,10 @@ export function createSelectionCard(scene: Phaser.Scene, config: SelectionCardCo
     container.setAlpha(dimmed ? 0.4 : 1);
   };
 
+  const setTexture = (textureKey: string): void => {
+    applyTexture(textureKey, container);
+  };
+
   const flashLock = (onComplete: () => void): void => {
     scene.tweens.add({
       targets: flash,
@@ -168,6 +192,7 @@ export function createSelectionCard(scene: Phaser.Scene, config: SelectionCardCo
     container,
     setSelected,
     setDimmed,
+    setTexture,
     flashLock,
     destroy: () => {
       container.destroy(true);

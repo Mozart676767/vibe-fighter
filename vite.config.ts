@@ -2,9 +2,11 @@ import { defineConfig } from 'vite';
 import { readdirSync, statSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-const PUBLIC_ROOT = resolve(import.meta.dirname, 'public');
+const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
+const PUBLIC_ROOT = resolve(ROOT_DIR, 'public');
 const ASSETS_ROOT = resolve(PUBLIC_ROOT, 'assets');
 const SHEET_NAMES = ['idle', 'walk', 'punch', 'kick', 'hit', 'ko', 'jump', 'crouch', 'block', 'special', 'portrait'] as const;
 const SHEET_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'] as const;

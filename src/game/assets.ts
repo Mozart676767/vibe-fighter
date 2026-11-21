@@ -174,7 +174,7 @@ export function preloadStarterAssets(scene: Phaser.Scene, assets: StarterAsset[]
 
 export function registerStarterAnimations(scene: Phaser.Scene): void {
   CHARACTER_ANIMATIONS.forEach((animation) => {
-    if (scene.anims.exists(animation.key)) {
+    if (scene.anims.exists(animation.key) || !scene.textures.exists(animation.sheet.key)) {
       return;
     }
 

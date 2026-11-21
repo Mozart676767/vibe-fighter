@@ -30,7 +30,8 @@ declare const __FIGHTER_SHEET_FILES__: Record<string, Record<string, string>> | 
  */
 
 const SHEET_NAMES = ['idle', 'walk', 'punch', 'kick', 'hit', 'ko', 'jump', 'crouch', 'block', 'special'] as const;
-const BOOT_CONCURRENCY = 6;
+const BOOT_FEATURED_COUNT = 2;
+const BOOT_CONCURRENCY = 3;
 const BACKGROUND_CONCURRENCY = 2;
 
 type SheetName = (typeof SHEET_NAMES)[number];
@@ -119,11 +120,14 @@ interface PreparedFighterState {
   character: CharacterDefinition;
   fighter: MyFighter;
   sheets: Map<SheetName, RawSheet | null>;
+  bootPromise?: Promise<void>;
+  bootDone: boolean;
   combatPromise?: Promise<void>;
   combatDone: boolean;
 }
 
 const fighterStates = new Map<string, PreparedFighterState>();
+const bootListeners = new Set<(fighterId: string) => void>();
 let backgroundPrepStarted = false;
 
 function toSpec(plan: ActionPlan): FighterActionSpec {
@@ -170,7 +174,7 @@ function candidateUrls(fighterId: string, name: string): string[] {
       ? __FIGHTER_SHEET_FILES__
       : undefined;
 
-  if (manifest) {
+  if (manifest && Object.keys(manifest).length > 0) {
     const file = manifest[fighterId]?.[name];
     return file ? [`${root}/${file}`] : [];
   }
@@ -206,8 +210,18 @@ async function loadSheetForFighter(
   name: SheetName
 ): Promise<RawSheet | null> {
   if (!sheets.has(name)) {
-    const image = await loadFirstImage(candidateUrls(fighter.id, name));
+    const urls = candidateUrls(fighter.id, name);
+    const image = urls.length > 0 ? await loadFirstImage(urls) : null;
     const sheet = image ? sliceRawSheet(image, { flip: fighter.flip, frames: fighter.frames?.[name] }) : null;
+    if (name === 'idle' && !sheet) {
+      if (urls.length === 0) {
+        console.warn(`[my-fighter] ${fighter.id}: no idle image found in build manifest`);
+      } else if (!image) {
+        console.warn(`[my-fighter] ${fighter.id}: failed to download ${urls[0]}`);
+      } else {
+        console.warn(`[my-fighter] ${fighter.id}: no pose detected in ${urls[0]}`);
+      }
+    }
     sheets.set(name, sheet);
   }
 
@@ -243,6 +257,9 @@ function applyPlanSheet(
 
   if (refreshAnim && game.anims.exists(animation.key)) {
     game.anims.remove(animation.key);
+  }
+
+  if (!game.anims.exists(animation.key)) {
     game.anims.create({
       key: animation.key,
       frames: game.anims.generateFrameNumbers(animation.sheet.key, {
@@ -255,9 +272,40 @@ function applyPlanSheet(
   }
 }
 
+function initFighterStates(): void {
+  fighterStates.clear();
+  backgroundPrepStarted = false;
+
+  for (const character of MY_FIGHTER_CHARACTERS) {
+    const fighter = MY_FIGHTERS.find((candidate) => candidate.id === character.id);
+    if (fighter) {
+      fighterStates.set(fighter.id, {
+        character,
+        fighter,
+        sheets: new Map<SheetName, RawSheet | null>(),
+        bootDone: false,
+        combatDone: false
+      });
+    }
+  }
+}
+
 /**
- * Phase 1 (Boot): Load idle poses and portraits for every fighter in parallel
- * so Splash, MainMenu, and CharacterSelect open rapidly without 404 spam.
+ * Subscribe to notifications whenever a fighter finishes its initial idle +
+ * portrait texture preparation.
+ * @param listener - Callback receiving the prepared fighter ID.
+ * @returns An unsubscribe function.
+ */
+export function onFighterBootReady(listener: (fighterId: string) => void): () => void {
+  bootListeners.add(listener);
+  return () => {
+    bootListeners.delete(listener);
+  };
+}
+
+/**
+ * Phase 1 (Boot): Load idle poses and portraits for the featured pair so the
+ * game opens in ~1 second; remaining fighters load in the background.
  * @param scene - The boot scene (owner of the texture manager).
  * @param onProgress - Optional progress callback `(completed, total)`.
  */
@@ -269,79 +317,72 @@ export async function prepareMyFighters(
     console.warn(`[my-fighter] "${fighter.id}" skipped: id must be lowercase english letters, numbers or "-"`);
   });
 
-  fighterStates.clear();
-  backgroundPrepStarted = false;
+  initFighterStates();
 
-  const total = MY_FIGHTER_CHARACTERS.length;
+  const initialStates = Array.from(fighterStates.values()).slice(0, BOOT_FEATURED_COUNT);
+  const total = initialStates.length;
   let completed = 0;
 
   onProgress?.(0, total);
 
-  await runWithConcurrency(MY_FIGHTER_CHARACTERS, BOOT_CONCURRENCY, async (character) => {
-    const fighter = MY_FIGHTERS.find((candidate) => candidate.id === character.id);
-    if (!fighter) {
-      completed += 1;
-      onProgress?.(completed, total);
-      return;
-    }
-
-    await prepareFighterBoot(scene, character, fighter);
+  await runWithConcurrency(initialStates, BOOT_CONCURRENCY, async (state) => {
+    await prepareFighterBoot(scene, state);
     completed += 1;
     onProgress?.(completed, total);
   });
 }
 
-async function prepareFighterBoot(
-  scene: Phaser.Scene,
-  character: CharacterDefinition,
-  fighter: MyFighter
-): Promise<void> {
-  const game = scene.sys?.game;
-  if (!isGameAlive(game)) {
+async function prepareFighterBoot(scene: Phaser.Scene, state: PreparedFighterState): Promise<void> {
+  if (state.bootDone) {
     return;
   }
 
-  const sheets = new Map<SheetName, RawSheet | null>();
-  const [idleSheet, portrait] = await Promise.all([
-    loadSheetForFighter(fighter, sheets, 'idle'),
-    loadFirstImage(candidateUrls(fighter.id, 'portrait'))
-  ]);
-
-  if (!isGameAlive(game)) {
-    return;
+  if (state.bootPromise) {
+    return state.bootPromise;
   }
 
-  const fallbackSheet = idleSheet ?? placeholderRawSheet();
-  const usedIdle: SheetName | null = idleSheet ? 'idle' : null;
+  state.bootPromise = (async () => {
+    const game = scene.sys?.game;
+    if (!isGameAlive(game)) {
+      return;
+    }
 
-  // Populate all actions initially using idle/placeholder so every texture key exists immediately.
-  for (const plan of ACTION_PLANS) {
-    applyPlanSheet(scene, character, plan, fallbackSheet, usedIdle, false);
-  }
+    const { character, fighter, sheets } = state;
+    const [idleSheet, portrait] = await Promise.all([
+      loadSheetForFighter(fighter, sheets, 'idle'),
+      loadFirstImage(candidateUrls(fighter.id, 'portrait'))
+    ]);
 
-  replaceTexture(game.textures, character.portrait.key);
+    if (!isGameAlive(game)) {
+      return;
+    }
 
-  if (portrait) {
-    game.textures.addImage(character.portrait.key, portrait);
-  } else {
-    game.textures.addCanvas(character.portrait.key, cropToPose(fallbackSheet));
-  }
+    const fallbackSheet = idleSheet ?? placeholderRawSheet();
+    const usedIdle: SheetName | null = idleSheet ? 'idle' : null;
 
-  if (character.anchorAsset.key !== character.portrait.key) {
-    replaceTexture(game.textures, character.anchorAsset.key);
-    game.textures.addCanvas(character.anchorAsset.key, frameToCanvas(fallbackSheet));
-  }
+    // Populate all actions initially using idle/placeholder so every texture key exists immediately.
+    for (const plan of ACTION_PLANS) {
+      applyPlanSheet(scene, character, plan, fallbackSheet, usedIdle, false);
+    }
 
-  if (!idleSheet) {
-    console.warn(`[my-fighter] ${fighter.id}: /assets/${fighter.id}/idle not found or has no pose in it`);
-  }
+    replaceTexture(game.textures, character.portrait.key);
 
-  fighterStates.set(fighter.id, {
-    character,
-    fighter,
-    sheets,
-    combatDone: false
-  });
+    if (portrait) {
+      game.textures.addImage(character.portrait.key, portrait);
+    } else {
+      game.textures.addCanvas(character.portrait.key, cropToPose(fallbackSheet));
+    }
+
+    if (character.anchorAsset.key !== character.portrait.key) {
+      replaceTexture(game.textures, character.anchorAsset.key);
+      game.textures.addCanvas(character.anchorAsset.key, frameToCanvas(fallbackSheet));
+    }
+
+    state.bootDone = true;
+    bootListeners.forEach((listener) => listener(fighter.id));
+  })();
+
+  return state.bootPromise;
 }
 
 async function prepareFighterCombat(scene: Phaser.Scene, state: PreparedFighterState): Promise<void> {
@@ -354,6 +395,13 @@ async function prepareFighterCombat(scene: Phaser.Scene, state: PreparedFighterS
   }
 
   state.combatPromise = (async () => {
+    await prepareFighterBoot(scene, state);
+
+    const game = scene.sys?.game;
+    if (!isGameAlive(game)) {
+      return;
+    }
+
     const { character, fighter, sheets } = state;
 
     for (const plan of ACTION_PLANS) {
@@ -390,8 +438,8 @@ async function prepareFighterCombat(scene: Phaser.Scene, state: PreparedFighterS
 }
 
 /**
- * Starts loading all fighters' remaining combat sheets in the background after
- * boot completes, keeping menu responsiveness smooth.
+ * Starts loading all remaining fighters' idle portraits first, followed by
+ * combat sheets in the background after boot completes.
  * @param scene - Any active Phaser scene.
  */
 export function startBackgroundFighterPrep(scene: Phaser.Scene): void {
@@ -402,19 +450,28 @@ export function startBackgroundFighterPrep(scene: Phaser.Scene): void {
   backgroundPrepStarted = true;
   const states = Array.from(fighterStates.values());
 
-  void runWithConcurrency(states, BACKGROUND_CONCURRENCY, async (state) => {
-    const game = scene.sys?.game;
-    if (!isGameAlive(game)) {
-      return;
-    }
+  void (async () => {
+    await runWithConcurrency(states, BOOT_CONCURRENCY, async (state) => {
+      const game = scene.sys?.game;
+      if (!isGameAlive(game)) {
+        return;
+      }
+      await prepareFighterBoot(scene, state);
+    });
 
-    await prepareFighterCombat(scene, state);
-  });
+    await runWithConcurrency(states, BACKGROUND_CONCURRENCY, async (state) => {
+      const game = scene.sys?.game;
+      if (!isGameAlive(game)) {
+        return;
+      }
+      await prepareFighterCombat(scene, state);
+    });
+  })();
 }
 
 /**
- * Ensures the specified fighter IDs have all combat sheets sliced and
- * animations updated before starting a match.
+ * Ensures the specified fighter IDs have both boot portraits and all combat
+ * sheets sliced and animations updated before starting a match.
  * @param scene - The calling Phaser scene.
  * @param fighterIds - Character IDs to prepare.
  */

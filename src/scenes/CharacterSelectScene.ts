@@ -3,7 +3,7 @@ import * as Phaser from 'phaser';
 import { AUDIO_KEYS, playAudioCue } from '../game/core/audio';
 import { FIGHTER_CHARACTER_DEFINITIONS } from '../game/hero';
 import { createMenuBackdrop } from '../game/menuBackdrop';
-import { ensureFightersReady, MY_FIGHTER_IDS } from '../game/myFighterLoader';
+import { ensureFightersReady, MY_FIGHTER_IDS, onFighterBootReady } from '../game/myFighterLoader';
 import { playSfx, startMusic } from '../game/soundEffects';
 import { createSelectionCard, type SelectionCard } from '../game/ui';
 import { SCENE_KEYS, type MatchMode } from '../game/types';
@@ -123,7 +123,20 @@ export class CharacterSelectScene extends BaseScene {
 
     this.createFooterHint(this.mode === '2v2' ? 'Tab: toggle Team 2 (CPU / 2P) • Esc to go back' : 'Esc to go back');
 
+    const unsubscribeBoot = onFighterBootReady((fighterId) => {
+      if (!this.scene.isActive()) {
+        return;
+      }
+
+      const index = SELECTABLE_ROSTER.findIndex((character) => character.id === fighterId);
+      if (index >= 0) {
+        const character = SELECTABLE_ROSTER[index];
+        this.cards[index]?.setTexture(character.portrait.key);
+      }
+    });
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      unsubscribeBoot();
       cleanupBackdrop();
       this.lockBadges.forEach((badge) => badge.destroy());
       this.lockBadges = [];

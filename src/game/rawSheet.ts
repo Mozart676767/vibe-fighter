@@ -45,7 +45,11 @@ interface Pose {
  */
 export async function loadFirstImage(urls: string[]): Promise<HTMLImageElement | null> {
   for (const url of urls) {
-    const image = await loadImage(url);
+    let image = await loadImage(url);
+    if (!image) {
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+      image = await loadImage(url, true);
+    }
 
     if (image) {
       return image;
@@ -55,14 +59,14 @@ export async function loadFirstImage(urls: string[]): Promise<HTMLImageElement |
   return null;
 }
 
-const IMAGE_LOAD_TIMEOUT_MS = 15000;
+const IMAGE_LOAD_TIMEOUT_MS = 60000;
 
-function loadImage(url: string): Promise<HTMLImageElement | null> {
+function loadImage(url: string, logFailure = false): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const image = new Image();
     let settled = false;
 
-    const finish = (result: HTMLImageElement | null): void => {
+    const finish = (result: HTMLImageElement | null, reason?: string): void => {
       if (settled) {
         return;
       }
@@ -70,13 +74,17 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
       window.clearTimeout(timer);
       image.onload = null;
       image.onerror = null;
+      if (!result && logFailure) {
+        console.warn(`[raw-sheet] could not load ${url} (${reason ?? 'unknown error'})`);
+      }
       resolve(result);
     };
 
-    const timer = window.setTimeout(() => finish(null), IMAGE_LOAD_TIMEOUT_MS);
+    const timer = window.setTimeout(() => finish(null, 'timeout'), IMAGE_LOAD_TIMEOUT_MS);
 
-    image.onload = () => finish(image.naturalWidth > 0 ? image : null);
-    image.onerror = () => finish(null);
+    image.onload = () =>
+      finish(image.naturalWidth > 0 ? image : null, image.naturalWidth > 0 ? undefined : 'empty image');
+    image.onerror = () => finish(null, 'network/decode error');
     image.src = url;
   });
 }
