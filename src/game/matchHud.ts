@@ -54,8 +54,18 @@ export interface MatchHudConfig {
   mode: MatchMode;
   p1CharacterId: string;
   p2CharacterId: string;
+  p1AllyCharacterId?: string;
+  p2AllyCharacterId?: string;
   roundsToWin: number;
   depth: number;
+}
+
+interface PartnerBar {
+  healthFill: Phaser.GameObjects.Rectangle;
+  meterFill: Phaser.GameObjects.Rectangle;
+  badgeText: Phaser.GameObjects.Text;
+  maxWidth: number;
+  height: number;
 }
 
 /**
@@ -90,6 +100,8 @@ export class MatchHud {
   private p2Frac = 1;
   private p1Blink: Phaser.Tweens.Tween | null = null;
   private p2Blink: Phaser.Tweens.Tween | null = null;
+  private p1Partner?: PartnerBar;
+  private p2Partner?: PartnerBar;
 
   /**
    * @param scene - The owning match scene.
@@ -128,11 +140,24 @@ export class MatchHud {
     this.buildMeter('left', p1HealthX, meterY);
     this.buildMeter('right', p2HealthX + HEALTH_DISP_W, meterY);
 
+    // --- 2v2 Partner HUD bars ---
+    if (this.config.mode === '2v2') {
+      const partnerY = meterY + METER_DISP_H + 10;
+      if (this.config.p1AllyCharacterId) {
+        this.p1Partner = this.buildPartnerBar('left', this.config.p1AllyCharacterId, p1HealthX, partnerY);
+      }
+      if (this.config.p2AllyCharacterId) {
+        this.p2Partner = this.buildPartnerBar('right', this.config.p2AllyCharacterId, p2HealthX + HEALTH_DISP_W, partnerY);
+      }
+    }
+
     // --- Timer (centre) ---
     this.buildTimer(camWidth / 2);
 
     this.applyHealth(1, 1);
     this.setMeter(0, 0);
+    this.applyPartnerHealth(1, 1);
+    this.setPartnerMeter(0, 0);
     this.updateWins(0, 0);
   }
 
@@ -164,6 +189,73 @@ export class MatchHud {
       this.p2Meter = fill;
       this.p2MeterGeom = geometry;
     }
+  }
+
+  private buildPartnerBar(
+    side: 'left' | 'right',
+    characterId: string,
+    edgeX: number,
+    topY: number
+  ): PartnerBar {
+    const isLeft = side === 'left';
+    const originX: 0 | 1 = isLeft ? 0 : 1;
+    const barW = 220;
+    const barH = 14;
+    const portraitSize = 38;
+    const gap = 8;
+
+    const portraitX = isLeft ? edgeX + portraitSize / 2 : edgeX - portraitSize / 2;
+    const barX = isLeft ? edgeX + portraitSize + gap : edgeX - portraitSize - gap;
+
+    const frameRect = this.scene.add
+      .rectangle(portraitX, topY + portraitSize / 2, portraitSize, portraitSize, 0x0f172a, 0.92)
+      .setStrokeStyle(2, isLeft ? 0x38bdf8 : 0xf43f5e, 0.9);
+    this.root.add(frameRect);
+
+    const portraitKey = getCharacterDefinition(characterId).portrait.key;
+    if (this.scene.textures.exists(portraitKey)) {
+      const portrait = this.scene.add
+        .image(portraitX, topY + portraitSize / 2, portraitKey)
+        .setDisplaySize(portraitSize - 4, portraitSize - 4)
+        .setFlipX(isLeft);
+      this.root.add(portrait);
+    }
+
+    const name = getCharacterDefinition(characterId).label.toUpperCase();
+    const badgeText = this.scene.add
+      .text(barX, topY, `${isLeft ? 'ALLY' : 'ALLY'} • ${name}`, {
+        color: '#e2e8f0',
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        fontStyle: 'bold'
+      })
+      .setOrigin(originX, 0);
+    this.root.add(badgeText);
+
+    const hpY = topY + 16;
+    const hpTrack = this.scene.add
+      .rectangle(barX, hpY, barW, barH, 0x0b1120, 0.88)
+      .setOrigin(originX, 0)
+      .setStrokeStyle(1, 0x334155, 1);
+    this.root.add(hpTrack);
+
+    const healthFill = this.scene.add
+      .rectangle(barX, hpY, barW, barH, 0x22c55e, 1)
+      .setOrigin(originX, 0);
+    this.root.add(healthFill);
+
+    const mY = hpY + barH + 3;
+    const meterTrack = this.scene.add
+      .rectangle(barX, mY, barW, 5, 0x0b1120, 0.85)
+      .setOrigin(originX, 0);
+    this.root.add(meterTrack);
+
+    const meterFill = this.scene.add
+      .rectangle(barX, mY, barW, 5, METER_FILL_COLOR, 1)
+      .setOrigin(originX, 0);
+    this.root.add(meterFill);
+
+    return { healthFill, meterFill, badgeText, maxWidth: barW, height: barH };
   }
 
   /**
@@ -363,6 +455,37 @@ export class MatchHud {
     this.renderMeter('right', Phaser.Math.Clamp(p2Frac, 0, 1));
   }
 
+  /** Updates 2v2 partner health bars. */
+  applyPartnerHealth(p1AllyFrac: number, p2AllyFrac: number): void {
+    this.renderPartnerHealth(this.p1Partner, Phaser.Math.Clamp(p1AllyFrac, 0, 1));
+    this.renderPartnerHealth(this.p2Partner, Phaser.Math.Clamp(p2AllyFrac, 0, 1));
+  }
+
+  /** Updates 2v2 partner special meter bars. */
+  setPartnerMeter(p1AllyFrac: number, p2AllyFrac: number): void {
+    this.renderPartnerMeter(this.p1Partner, Phaser.Math.Clamp(p1AllyFrac, 0, 1));
+    this.renderPartnerMeter(this.p2Partner, Phaser.Math.Clamp(p2AllyFrac, 0, 1));
+  }
+
+  private renderPartnerHealth(bar: PartnerBar | undefined, frac: number): void {
+    if (!bar) {
+      return;
+    }
+    const color = frac > HEALTH_WARN ? 0x22c55e : frac > HEALTH_DANGER ? 0xfacc15 : 0xef4444;
+    bar.healthFill.setDisplaySize(Math.max(0, bar.maxWidth * frac), bar.height);
+    bar.healthFill.setFillStyle(color, 1);
+    bar.healthFill.setVisible(frac > 0);
+  }
+
+  private renderPartnerMeter(bar: PartnerBar | undefined, frac: number): void {
+    if (!bar) {
+      return;
+    }
+    bar.meterFill.setDisplaySize(Math.max(0, bar.maxWidth * frac), 5);
+    bar.meterFill.setFillStyle(frac >= 1 ? METER_READY_COLOR : METER_FILL_COLOR, 1);
+    bar.meterFill.setVisible(frac > 0);
+  }
+
   /**
    * Renders one side's meter: width by fraction, colour + glow when full.
    * @param side - Which meter to render.
@@ -464,8 +587,12 @@ export class MatchHud {
       onUpdate: (tween) => {
         const value = tween.getValue() ?? 0;
         this.applyHealth(value, value);
+        this.applyPartnerHealth(value, value);
       },
-      onComplete: () => this.applyHealth(1, 1)
+      onComplete: () => {
+        this.applyHealth(1, 1);
+        this.applyPartnerHealth(1, 1);
+      }
     });
   }
 

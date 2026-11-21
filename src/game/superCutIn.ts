@@ -26,7 +26,7 @@ const HOLD_MS = 380;
 const SLIDE_OUT_MS = 240;
 const TOTAL_MS = SLIDE_IN_MS + HOLD_MS + SLIDE_OUT_MS;
 
-const STREAK_COUNT = 14;
+const STREAK_COUNT = 24;
 /** How far the portrait's trapezium mask narrows at the top vs the bottom. */
 const TRAPEZIUM_SLANT = 0.16;
 
@@ -44,16 +44,9 @@ export interface SuperCutInOptions {
 
 /**
  * Plays a grandiose, fighting-game-style super-move cut-in: the screen dims to a
- * lightbox with cinematic letterbox bars, accent "speed bars" sweep across, and
- * the character's large portrait slams in from the side — masked into an angled
- * trapezium panel — with an impact flash and burst before sweeping back out as
- * the special executes. Portraits are authored facing left (canonical) and are
- * flipped to face inward toward the opponent (left side faces right, right side
- * faces left). All elements are fixed to the camera and self-destroy, so it is
- * purely cosmetic and safe to fire mid match.
- * @param scene - The owning scene.
- * @param options - Character, entry side, and accent colour.
- * @returns The cut-in's total duration in milliseconds.
+ * lightbox with cinematic letterbox bars, neon speed-lines and radial burst rays
+ * sweep across, and the character's large portrait slams in with an aura edge —
+ * masked into an angled trapezium panel — alongside a skewed jutsu nameplate.
  */
 export function playSuperCutIn(scene: Phaser.Scene, options: SuperCutInOptions): number {
   const color = COLOR[options.color ?? 'gold'];
@@ -68,58 +61,126 @@ export function playSuperCutIn(scene: Phaser.Scene, options: SuperCutInOptions):
     return object;
   };
 
-  const barHeight = Math.round(height * 0.12);
+  const barHeight = Math.round(height * 0.115);
   const outDelay = SLIDE_IN_MS + HOLD_MS;
 
-  // 1) Lightbox dim.
+  // 1) Deep dramatic lightbox dim + side-split accent glow.
   const lightbox = track(
-    scene.add.rectangle(width / 2, height / 2, width, height, 0x05070d, 0).setScrollFactor(0).setDepth(DEPTH_BACKDROP)
+    scene.add.rectangle(width / 2, height / 2, width, height, 0x020617, 0).setScrollFactor(0).setDepth(DEPTH_BACKDROP)
   );
-  scene.tweens.add({ targets: lightbox, alpha: 0.62, duration: SLIDE_IN_MS, ease: 'Quad.Out' });
+  scene.tweens.add({ targets: lightbox, alpha: 0.72, duration: SLIDE_IN_MS, ease: 'Quad.Out' });
   scene.tweens.add({ targets: lightbox, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Quad.In' });
 
-  // 2) Accent wash on the entry side.
   const wash = track(
     scene.add
-      .rectangle(fromLeft ? 0 : width, height / 2, width * 0.7, height, color, 0.0)
+      .rectangle(fromLeft ? 0 : width, height / 2, width * 0.78, height, color, 0.0)
       .setOrigin(fromLeft ? 0 : 1, 0.5)
+      .setBlendMode(Phaser.BlendModes.ADD)
       .setScrollFactor(0)
       .setDepth(DEPTH_BACKDROP)
   );
-  scene.tweens.add({ targets: wash, alpha: 0.22, duration: SLIDE_IN_MS, ease: 'Quad.Out' });
+  scene.tweens.add({ targets: wash, alpha: 0.28, duration: SLIDE_IN_MS, ease: 'Quad.Out' });
   scene.tweens.add({ targets: wash, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Quad.In' });
 
-  // 3) Accent speed bars sweeping across.
-  const fromX = fromLeft ? -width * 0.4 : width * 1.4;
-  const toX = fromLeft ? width * 1.4 : -width * 0.4;
+  // Diagonal full-screen energy ribbon behind the portrait & nameplate.
+  const ribbon = track(
+    scene.add
+      .rectangle(width / 2, height / 2, width * 1.4, height * 0.34, color, 0)
+      .setAngle(fromLeft ? -6 : 6)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScrollFactor(0)
+      .setDepth(DEPTH_BACKDROP)
+  );
+  scene.tweens.add({ targets: ribbon, alpha: 0.22, duration: SLIDE_IN_MS, ease: 'Quad.Out' });
+  scene.tweens.add({ targets: ribbon, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Quad.In' });
+
+  // 2) Dense anime speed bars sweeping across in both white-hot and accent tones.
+  const fromX = fromLeft ? -width * 0.45 : width * 1.45;
+  const toX = fromLeft ? width * 1.45 : -width * 0.45;
   for (let index = 0; index < STREAK_COUNT; index += 1) {
     const y = Phaser.Math.Between(barHeight, height - barHeight);
+    const isCore = index % 4 === 0;
     const streak = track(
       scene.add
-        .rectangle(fromX, y, Phaser.Math.Between(width * 0.45, width * 0.95), Phaser.Math.Between(3, 11), color, 0.55)
+        .rectangle(
+          fromX,
+          y,
+          Phaser.Math.Between(width * 0.4, width * 1.0),
+          isCore ? Phaser.Math.Between(2, 5) : Phaser.Math.Between(5, 14),
+          isCore ? 0xffffff : color,
+          isCore ? 0.85 : 0.62
+        )
+        .setBlendMode(Phaser.BlendModes.ADD)
         .setScrollFactor(0)
         .setDepth(DEPTH_STREAKS)
-        .setAngle(fromLeft ? -7 : 7)
+        .setAngle(fromLeft ? -6 : 6)
     );
-    scene.tweens.add({ targets: streak, x: toX, alpha: 0, delay: index * 18, duration: 380, ease: 'Quad.Out' });
+    scene.tweens.add({ targets: streak, x: toX, alpha: 0, delay: index * 14, duration: 420, ease: 'Quad.Out' });
   }
 
-  // 4) The big portrait slamming in from the side, masked into a trapezium.
+  // 3) The big portrait slamming in from the side, masked into a glowing trapezium panel.
   buildPortrait(scene, track, options, { width, height, fromLeft, color });
 
-  // 5) Character name caption (+ signature jutsu title), entering from the opposite side.
-  const captionFromX = fromLeft ? width + 200 : -200;
-  const captionRestX = fromLeft ? width - 40 : 40;
-  const captionY = options.subtitle ? height * 0.45 : height * 0.5;
+  // 4) Skewed metallic nameplate + Character name & signature jutsu title.
+  const captionFromX = fromLeft ? width + 320 : -320;
+  const captionRestX = fromLeft ? width - 38 : 38;
+  const captionY = options.subtitle ? height * 0.44 : height * 0.5;
+
+  const plateWidth = 520;
+  const plateHeight = options.subtitle ? 128 : 82;
+  const plateFromX = fromLeft ? width + plateWidth : -plateWidth;
+  const plateRestX = fromLeft ? width - plateWidth * 0.5 - 20 : plateWidth * 0.5 + 20;
+
+  const plate = track(
+    scene.add
+      .rectangle(plateFromX, height * 0.5, plateWidth, plateHeight, 0x05070d, 0.86)
+      .setStrokeStyle(3, color, 0.95)
+      .setAngle(fromLeft ? -4 : 4)
+      .setScrollFactor(0)
+      .setDepth(DEPTH_CAPTION - 1)
+  );
+  const plateEdge = track(
+    scene.add
+      .rectangle(
+        plateFromX + (fromLeft ? -plateWidth * 0.48 : plateWidth * 0.48),
+        height * 0.5,
+        10,
+        plateHeight,
+        0xffffff,
+        0.95
+      )
+      .setAngle(fromLeft ? -4 : 4)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScrollFactor(0)
+      .setDepth(DEPTH_CAPTION)
+  );
+
+  scene.tweens.add({ targets: plate, x: plateRestX, duration: SLIDE_IN_MS, ease: 'Back.Out' });
+  scene.tweens.add({
+    targets: plateEdge,
+    x: plateRestX + (fromLeft ? -plateWidth * 0.48 : plateWidth * 0.48),
+    duration: SLIDE_IN_MS,
+    ease: 'Back.Out'
+  });
+  scene.tweens.add({ targets: plate, x: plateFromX, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Back.In' });
+  scene.tweens.add({
+    targets: plateEdge,
+    x: plateFromX + (fromLeft ? -plateWidth * 0.48 : plateWidth * 0.48),
+    alpha: 0,
+    delay: outDelay,
+    duration: SLIDE_OUT_MS,
+    ease: 'Back.In'
+  });
+
   const caption = track(
     scene.add
       .text(captionFromX, captionY, getCharacterDefinition(options.characterId).label.toUpperCase(), {
         color: '#f8fafc',
         fontFamily: 'monospace',
         fontStyle: 'bold',
-        fontSize: '40px',
-        stroke: '#05070d',
-        strokeThickness: 6
+        fontSize: '42px',
+        stroke: '#020617',
+        strokeThickness: 7
       })
       .setOrigin(fromLeft ? 1 : 0, 0.5)
       .setScrollFactor(0)
@@ -132,23 +193,23 @@ export function playSuperCutIn(scene: Phaser.Scene, options: SuperCutInOptions):
     const accentHex = `#${color.toString(16).padStart(6, '0')}`;
     const sub = track(
       scene.add
-        .text(captionFromX, height * 0.55, options.subtitle.toUpperCase(), {
+        .text(captionFromX, height * 0.555, options.subtitle.toUpperCase(), {
           color: accentHex,
           fontFamily: 'monospace',
           fontStyle: 'bold',
           fontSize: '30px',
-          stroke: '#05070d',
+          stroke: '#020617',
           strokeThickness: 6
         })
         .setOrigin(fromLeft ? 1 : 0, 0.5)
         .setScrollFactor(0)
         .setDepth(DEPTH_CAPTION)
     );
-    scene.tweens.add({ targets: sub, x: captionRestX, duration: SLIDE_IN_MS + 30, ease: 'Back.Out' });
+    scene.tweens.add({ targets: sub, x: captionRestX, duration: SLIDE_IN_MS + 25, ease: 'Back.Out' });
     scene.tweens.add({ targets: sub, x: captionFromX, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Back.In' });
   }
 
-  // 6) Cinematic letterbox bars framing the panel.
+  // 5) Cinematic letterbox bars with glowing accent trim lines.
   const topBar = track(
     scene.add.rectangle(width / 2, -barHeight / 2, width, barHeight, 0x000000, 1).setScrollFactor(0).setDepth(DEPTH_LETTERBOX)
   );
@@ -158,43 +219,49 @@ export function playSuperCutIn(scene: Phaser.Scene, options: SuperCutInOptions):
       .setScrollFactor(0)
       .setDepth(DEPTH_LETTERBOX)
   );
+  const topTrim = track(
+    scene.add.rectangle(width / 2, 0, width, 3, color, 0.9).setBlendMode(Phaser.BlendModes.ADD).setScrollFactor(0).setDepth(DEPTH_LETTERBOX + 1)
+  );
+  const bottomTrim = track(
+    scene.add.rectangle(width / 2, height, width, 3, color, 0.9).setBlendMode(Phaser.BlendModes.ADD).setScrollFactor(0).setDepth(DEPTH_LETTERBOX + 1)
+  );
+
   scene.tweens.add({ targets: topBar, y: barHeight / 2, duration: SLIDE_IN_MS, ease: 'Cubic.Out' });
   scene.tweens.add({ targets: bottomBar, y: height - barHeight / 2, duration: SLIDE_IN_MS, ease: 'Cubic.Out' });
-  scene.tweens.add({ targets: topBar, y: -barHeight / 2, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Cubic.In' });
-  scene.tweens.add({
-    targets: bottomBar,
-    y: height + barHeight / 2,
-    delay: outDelay,
-    duration: SLIDE_OUT_MS,
-    ease: 'Cubic.In'
-  });
+  scene.tweens.add({ targets: topTrim, y: barHeight, duration: SLIDE_IN_MS, ease: 'Cubic.Out' });
+  scene.tweens.add({ targets: bottomTrim, y: height - barHeight, duration: SLIDE_IN_MS, ease: 'Cubic.Out' });
 
-  // 7) Impact flash as the portrait lands.
+  scene.tweens.add({ targets: topBar, y: -barHeight / 2, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Cubic.In' });
+  scene.tweens.add({ targets: bottomBar, y: height + barHeight / 2, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Cubic.In' });
+  scene.tweens.add({ targets: topTrim, y: 0, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Cubic.In' });
+  scene.tweens.add({ targets: bottomTrim, y: height, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Cubic.In' });
+
+  // 6) Impact flash + camera punch shake as the portrait slams into position.
   const flash = track(
     scene.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0).setScrollFactor(0).setDepth(DEPTH_FLASH)
   );
   scene.tweens.add({
     targets: flash,
-    alpha: 0.65,
+    alpha: 0.72,
     delay: SLIDE_IN_MS - 50,
-    duration: 70,
+    duration: 75,
     yoyo: true,
     ease: 'Quad.Out'
   });
+  scene.time.delayedCall(SLIDE_IN_MS - 40, () => {
+    if (scene.scene.isActive()) {
+      cam.shake(150, 0.008);
+    }
+  });
 
-  scene.time.delayedCall(TOTAL_MS + 120, () => layers.forEach((object) => object.destroy()));
+  scene.time.delayedCall(TOTAL_MS + 140, () => layers.forEach((object) => object.destroy()));
 
   return TOTAL_MS;
 }
 
 /**
- * Builds the sliding portrait plus its trapezium geometry mask and landing burst.
- * The mask Graphics travels with the portrait (shared slide tweens) so the angled
- * panel stays aligned. No-op (gracefully) if the portrait texture isn't loaded.
- * @param scene - The owning scene.
- * @param track - Registers a created object for end-of-cinematic cleanup.
- * @param options - Cut-in character/side/colour options.
- * @param layout - Resolved screen geometry for this cut-in.
+ * Builds the sliding portrait plus its glowing aura silhouette, neon trapezium frame,
+ * geometry mask, and starburst landing burst.
  */
 function buildPortrait(
   scene: Phaser.Scene,
@@ -209,11 +276,41 @@ function buildPortrait(
   }
 
   const source = scene.textures.get(portraitKey).getSourceImage();
-  const scale = (height * 1.04) / source.height;
+  const scale = (height * 1.05) / source.height;
   const displayWidth = source.width * scale;
   const displayHeight = source.height * scale;
   const restX = fromLeft ? displayWidth * 0.42 : width - displayWidth * 0.42;
-  const offX = fromLeft ? -displayWidth * 0.6 : width + displayWidth * 0.6;
+  const offX = fromLeft ? -displayWidth * 0.65 : width + displayWidth * 0.65;
+
+  // Radial anime starburst lines behind the portrait
+  const rays = track(scene.add.graphics({ x: restX, y: height / 2 }).setScrollFactor(0).setDepth(DEPTH_PORTRAIT - 1).setAlpha(0));
+  rays.fillStyle(color, 0.32);
+  for (let i = 0; i < 12; i += 1) {
+    const a = (Math.PI * 2 * i) / 12;
+    rays.fillTriangle(
+      0,
+      0,
+      Math.cos(a - 0.08) * height * 0.9,
+      Math.sin(a - 0.08) * height * 0.9,
+      Math.cos(a + 0.08) * height * 0.9,
+      Math.sin(a + 0.08) * height * 0.9
+    );
+  }
+  scene.tweens.add({ targets: rays, alpha: 0.9, angle: fromLeft ? 25 : -25, delay: SLIDE_IN_MS - 40, duration: HOLD_MS, ease: 'Cubic.Out' });
+  scene.tweens.add({ targets: rays, alpha: 0, delay: SLIDE_IN_MS + HOLD_MS, duration: SLIDE_OUT_MS });
+
+  // Glowing colored aura silhouette behind the portrait
+  const aura = track(
+    scene.add
+      .image(offX, height / 2, portraitKey)
+      .setScrollFactor(0)
+      .setDepth(DEPTH_PORTRAIT)
+      .setScale(scale * 1.07)
+      .setTint(color)
+      .setAlpha(0.55)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setFlipX(fromLeft)
+  );
 
   const portrait = track(
     scene.add
@@ -221,20 +318,14 @@ function buildPortrait(
       .setScrollFactor(0)
       .setDepth(DEPTH_PORTRAIT)
       .setScale(scale)
-      // Portraits are authored facing left (canonical). Flip so the portrait
-      // faces inward toward the opponent: the left side faces right, the right
-      // side keeps facing left.
       .setFlipX(fromLeft)
   );
 
-  // Trapezium mask: narrower at the top, wider at the bottom (symmetric, so it is
-  // side-agnostic and needs no mirroring when the portrait is flipped).
+  // Trapezium mask & neon border frame travelling together
   const halfH = displayHeight * 0.5;
   const halfWBottom = displayWidth * 0.5;
   const halfWTop = halfWBottom - displayWidth * TRAPEZIUM_SLANT;
-  const maskGraphics = track(
-    scene.add.graphics({ x: offX, y: height / 2 }).setScrollFactor(0)
-  );
+  const maskGraphics = track(scene.add.graphics({ x: offX, y: height / 2 }).setScrollFactor(0));
   maskGraphics.fillStyle(0xffffff, 1);
   maskGraphics.beginPath();
   maskGraphics.moveTo(-halfWTop, -halfH);
@@ -246,22 +337,74 @@ function buildPortrait(
   maskGraphics.setVisible(false);
   portrait.setMask(maskGraphics.createGeometryMask());
 
+  const frame = track(scene.add.graphics({ x: offX, y: height / 2 }).setScrollFactor(0).setDepth(DEPTH_PORTRAIT + 1));
+  frame.lineStyle(8, color, 0.95);
+  frame.beginPath();
+  frame.moveTo(-halfWTop, -halfH);
+  frame.lineTo(halfWTop, -halfH);
+  frame.lineTo(halfWBottom, halfH);
+  frame.lineTo(-halfWBottom, halfH);
+  frame.closePath();
+  frame.strokePath();
+  frame.lineStyle(3, 0xffffff, 0.95);
+  frame.strokePath();
+
   const outDelay = SLIDE_IN_MS + HOLD_MS;
-  scene.tweens.add({ targets: [portrait, maskGraphics], x: restX, duration: SLIDE_IN_MS, ease: 'Back.Out' });
+  scene.tweens.add({
+    targets: [portrait, aura, maskGraphics, frame],
+    x: restX,
+    duration: SLIDE_IN_MS,
+    ease: 'Back.Out'
+  });
   scene.tweens.add({
     targets: portrait,
-    scale: scale * 1.05,
+    scale: scale * 1.06,
     delay: SLIDE_IN_MS,
     duration: HOLD_MS,
     ease: 'Sine.InOut',
     yoyo: true
   });
-  scene.tweens.add({ targets: [portrait, maskGraphics], x: offX, duration: SLIDE_OUT_MS, delay: outDelay, ease: 'Back.In' });
-  scene.tweens.add({ targets: portrait, alpha: 0, delay: outDelay, duration: SLIDE_OUT_MS, ease: 'Quad.In' });
+  scene.tweens.add({
+    targets: aura,
+    scale: scale * 1.16,
+    alpha: 0.25,
+    delay: SLIDE_IN_MS,
+    duration: HOLD_MS,
+    ease: 'Sine.InOut',
+    yoyo: true
+  });
+  scene.tweens.add({
+    targets: [portrait, aura, maskGraphics, frame],
+    x: offX,
+    duration: SLIDE_OUT_MS,
+    delay: outDelay,
+    ease: 'Back.In'
+  });
+  scene.tweens.add({
+    targets: [portrait, aura, frame],
+    alpha: 0,
+    delay: outDelay,
+    duration: SLIDE_OUT_MS,
+    ease: 'Quad.In'
+  });
 
-  // Burst ring where the portrait lands.
-  const burst = track(
-    scene.add.circle(restX, height / 2, 36, color, 0).setStrokeStyle(8, color, 0.9).setScrollFactor(0).setDepth(DEPTH_PORTRAIT)
+  // Double shock burst rings where the portrait lands.
+  const burstOuter = track(
+    scene.add
+      .circle(restX, height / 2, 42, color, 0)
+      .setStrokeStyle(9, color, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScrollFactor(0)
+      .setDepth(DEPTH_PORTRAIT)
   );
-  scene.tweens.add({ targets: burst, scale: 7, alpha: 0, delay: SLIDE_IN_MS - 30, duration: 420, ease: 'Cubic.Out' });
+  const burstInner = track(
+    scene.add
+      .circle(restX, height / 2, 24, 0xffffff, 0)
+      .setStrokeStyle(5, 0xffffff, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScrollFactor(0)
+      .setDepth(DEPTH_PORTRAIT)
+  );
+  scene.tweens.add({ targets: burstOuter, scale: 8, alpha: 0, delay: SLIDE_IN_MS - 30, duration: 420, ease: 'Cubic.Out' });
+  scene.tweens.add({ targets: burstInner, scale: 6.5, alpha: 0, delay: SLIDE_IN_MS - 10, duration: 360, ease: 'Cubic.Out' });
 }

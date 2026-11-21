@@ -37,4 +37,13 @@ export const MY_FIGHTERS: MyFighter[] = [
   { id: 'gojo', name: 'Gojo', flip: true, frames: FOUR_FRAME_SHEET },
   { id: 'ichigo', name: 'Ichigo', flip: true, frames: FOUR_FRAME_SHEET },
   { id: 'tanjiro', name: 'Tanjiro', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'vegeta', name: 'Vegeta', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'sukuna', name: 'Sukuna', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'killua', name: 'Killua', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'saitama', name: 'Saitama', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'madara', name: 'Madara', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'deku', name: 'Deku', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'bakugo', name: 'Bakugo', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'todoroki', name: 'Todoroki', flip: true, frames: FOUR_FRAME_SHEET },
+  { id: 'all-might', name: 'All Might', flip: true, frames: FOUR_FRAME_SHEET }
 ];

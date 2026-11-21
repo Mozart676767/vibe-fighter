@@ -235,6 +235,114 @@ export const SPECIAL_POWERS: Record<string, SpecialPowerConfig> = {
     hitCount: 3,
     hitIntervalMs: 110,
     durationMs: 620
+  },
+  vegeta: {
+    id: 'vegeta',
+    jutsuName: 'Final Flash',
+    color: 'gold',
+    kind: 'ranged',
+    dashSpeed: 0,
+    range: 490,
+    hitboxHeight: 200,
+    hitCount: 3,
+    hitIntervalMs: 115,
+    durationMs: 680
+  },
+  sukuna: {
+    id: 'sukuna',
+    jutsuName: 'Malevolent Shrine',
+    color: 'red',
+    kind: 'aoe',
+    dashSpeed: 0,
+    range: 370,
+    hitboxHeight: 260,
+    hitCount: 4,
+    hitIntervalMs: 110,
+    durationMs: 660
+  },
+  killua: {
+    id: 'killua',
+    jutsuName: 'Godspeed',
+    color: 'cyan',
+    kind: 'dash',
+    dashSpeed: 1120,
+    range: 240,
+    hitboxHeight: 185,
+    hitCount: 3,
+    hitIntervalMs: 95,
+    durationMs: 600
+  },
+  saitama: {
+    id: 'saitama',
+    jutsuName: 'Serious Punch',
+    color: 'gold',
+    kind: 'dash',
+    dashSpeed: 1160,
+    range: 325,
+    hitboxHeight: 235,
+    hitCount: 1,
+    hitIntervalMs: 100,
+    durationMs: 620
+  },
+  madara: {
+    id: 'madara',
+    jutsuName: 'Tengai Shinsei',
+    color: 'purple',
+    kind: 'aoe',
+    dashSpeed: 0,
+    range: 380,
+    hitboxHeight: 275,
+    hitCount: 2,
+    hitIntervalMs: 180,
+    durationMs: 700
+  },
+  deku: {
+    id: 'deku',
+    jutsuName: 'Detroit Smash',
+    color: 'green',
+    kind: 'dash',
+    dashSpeed: 1020,
+    range: 245,
+    hitboxHeight: 195,
+    hitCount: 3,
+    hitIntervalMs: 100,
+    durationMs: 620
+  },
+  bakugo: {
+    id: 'bakugo',
+    jutsuName: 'Howitzer Impact',
+    color: 'orange',
+    kind: 'dash',
+    dashSpeed: 980,
+    range: 255,
+    hitboxHeight: 205,
+    hitCount: 3,
+    hitIntervalMs: 105,
+    durationMs: 640
+  },
+  todoroki: {
+    id: 'todoroki',
+    jutsuName: 'Flashfreeze Heatwave',
+    color: 'cyan',
+    kind: 'ranged',
+    dashSpeed: 0,
+    range: 465,
+    hitboxHeight: 215,
+    hitCount: 2,
+    hitIntervalMs: 155,
+    durationMs: 680
+  },
+  'all-might': {
+    id: 'all-might',
+    jutsuName: 'United States of Smash',
+    color: 'gold',
+    kind: 'dash',
+    dashSpeed: 1040,
+    range: 310,
+    hitboxHeight: 235,
+    hitCount: 1,
+    hitIntervalMs: 100,
+    durationMs: 660
   }
 };
 
@@ -250,25 +358,41 @@ export function spawnSpecialChargeFx(ctx: SpecialFxContext, power: SpecialPowerC
   // Glowing sprite silhouette pulse around the caster during wind-up.
   spawnSpriteAura(ctx, hex, 1.14, 420);
 
+  // Glowing ground chakra halo under caster's feet during wind-up.
+  const groundHalo = ctx.scene.add
+    .ellipse(ctx.x, ctx.groundY - 8, 96, 28, hex, 0.35)
+    .setStrokeStyle(4, 0xffffff, 0.9)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_DEPTH - 1);
+  ctx.scene.tweens.add({
+    targets: groundHalo,
+    scaleX: 2.1,
+    scaleY: 1.6,
+    alpha: 0,
+    duration: 420,
+    ease: 'Cubic.Out',
+    onComplete: () => groundHalo.destroy()
+  });
+
   // Rising chakra motes around the caster.
-  for (let i = 0; i < 10; i += 1) {
+  for (let i = 0; i < 16; i += 1) {
     const mote = ctx.scene.add
       .circle(
-        ctx.x + Phaser.Math.Between(-50, 50),
-        ctx.groundY - Phaser.Math.Between(6, 36),
-        Phaser.Math.Between(3, 6),
-        hex,
-        0.9
+        ctx.x + Phaser.Math.Between(-58, 58),
+        ctx.groundY - Phaser.Math.Between(6, 40),
+        Phaser.Math.Between(3, 7),
+        i % 4 === 0 ? 0xffffff : hex,
+        0.95
       )
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(JUTSU_DEPTH);
     ctx.scene.tweens.add({
       targets: mote,
-      y: mote.y - Phaser.Math.Between(90, 170),
+      y: mote.y - Phaser.Math.Between(100, 195),
       alpha: 0,
-      scale: 0.3,
-      delay: i * 32,
-      duration: 380,
+      scale: 0.25,
+      delay: i * 24,
+      duration: 400,
       ease: 'Cubic.Out',
       onComplete: () => mote.destroy()
     });
@@ -294,6 +418,25 @@ export function spawnSpecialChargeFx(ctx: SpecialFxContext, power: SpecialPowerC
     spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0x38bdf8, 0x0f172a);
   } else if (power.id === 'tanjiro') {
     spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xf97316, 0x22d3ee);
+  } else if (power.id === 'vegeta') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xfacc15, 0xfef08a);
+  } else if (power.id === 'sukuna') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xef4444, 0x18181b);
+  } else if (power.id === 'killua') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0x22d3ee, 0xe0f2fe);
+  } else if (power.id === 'saitama') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xfacc15, 0xef4444);
+  } else if (power.id === 'madara') {
+    spawnSharinganCrest(ctx.scene, ctx.x, ctx.groundY - ctx.bodyHeight * 0.85, true);
+    spawnRinneganCrest(ctx.scene, ctx.x, midY, true);
+  } else if (power.id === 'deku') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0x22c55e, 0x86efac);
+  } else if (power.id === 'bakugo') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xf97316, 0xfacc15);
+  } else if (power.id === 'todoroki') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0x38bdf8, 0xef4444);
+  } else if (power.id === 'all-might') {
+    spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xfacc15, 0xef4444);
   }
 }
 
@@ -346,7 +489,19 @@ export function spawnSpecialDashTrailFx(ctx: SpecialFxContext, power: SpecialPow
             ? Math.random() < 0.5
               ? 0xf97316
               : 0xfacc15
-            : hex;
+            : power.id === 'killua'
+              ? Math.random() < 0.5
+                ? 0x22d3ee
+                : 0xe0f2fe
+              : power.id === 'saitama'
+                ? 0xfacc15
+                : power.id === 'deku'
+                  ? 0x22c55e
+                  : power.id === 'bakugo'
+                    ? 0xf97316
+                    : power.id === 'all-might'
+                      ? 0xfacc15
+                      : hex;
     const ghost = ctx.scene.add
       .sprite(ctx.x, ctx.groundY, ctx.sprite.textureKey, ctx.sprite.frameName)
       .setOrigin(ctx.sprite.originX, ctx.sprite.originY)
@@ -431,6 +586,33 @@ export function spawnSpecialExecuteFx(ctx: SpecialFxContext, power: SpecialPower
     case 'tanjiro':
       spawnHinokamiKaguraFx(ctx);
       break;
+    case 'vegeta':
+      spawnFinalFlashFx(ctx);
+      break;
+    case 'sukuna':
+      spawnMalevolentShrineFx(ctx);
+      break;
+    case 'killua':
+      spawnGodspeedFx(ctx);
+      break;
+    case 'saitama':
+      spawnSeriousPunchFx(ctx);
+      break;
+    case 'madara':
+      spawnTengaiShinseiFx(ctx);
+      break;
+    case 'deku':
+      spawnDetroitSmashFx(ctx);
+      break;
+    case 'bakugo':
+      spawnHowitzerImpactFx(ctx);
+      break;
+    case 'todoroki':
+      spawnFlashfreezeHeatwaveFx(ctx);
+      break;
+    case 'all-might':
+      spawnUnitedStatesOfSmashFx(ctx);
+      break;
     default:
       spawnRasenganFx(ctx, VFX_HEX[power.color], 0xffffff, 'gold');
       break;
@@ -439,6 +621,7 @@ export function spawnSpecialExecuteFx(ctx: SpecialFxContext, power: SpecialPower
 
 function spawnSuperStageDim(scene: Phaser.Scene, color: VfxColor, durationMs: number): void {
   const cam = scene.cameras.main;
+  const hex = VFX_HEX[color];
   const tint = color === 'red' ? 0x1a0308 : color === 'purple' ? 0x120624 : 0x020617;
   const dim = scene.add
     .rectangle(cam.width / 2, cam.height / 2, cam.width, cam.height, tint, 0)
@@ -447,8 +630,8 @@ function spawnSuperStageDim(scene: Phaser.Scene, color: VfxColor, durationMs: nu
 
   scene.tweens.add({
     targets: dim,
-    alpha: 0.52,
-    duration: 110,
+    alpha: 0.62,
+    duration: 100,
     ease: 'Quad.Out',
     onComplete: () => {
       scene.tweens.add({
@@ -461,6 +644,25 @@ function spawnSuperStageDim(scene: Phaser.Scene, color: VfxColor, durationMs: nu
       });
     }
   });
+
+  // Anime action speed-lines flashing across the darkened backdrop
+  for (let i = 0; i < 12; i += 1) {
+    const y = Phaser.Math.Between(50, cam.height - 50);
+    const line = scene.add
+      .rectangle(cam.width * 0.5, y, cam.width * 1.15, i % 3 === 0 ? 4 : 2, i % 3 === 0 ? 0xffffff : hex, 0.38)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScrollFactor(0)
+      .setDepth(JUTSU_BACK_DEPTH + 1);
+    scene.tweens.add({
+      targets: line,
+      scaleX: 1.25,
+      alpha: 0,
+      delay: i * 28,
+      duration: Math.max(280, durationMs - 80),
+      ease: 'Quad.Out',
+      onComplete: () => line.destroy()
+    });
+  }
 }
 
 function spawnSpriteAura(ctx: SpecialFxContext, hex: number, scaleMult: number, durationMs: number): void {
@@ -1443,7 +1645,747 @@ function spawnHinokamiKaguraFx(ctx: SpecialFxContext): void {
   }
 }
 
-function spawnSharinganCrest(scene: Phaser.Scene, x: number, y: number, mangekyou: boolean): void {
+function spawnFinalFlashFx(ctx: SpecialFxContext): void {
+  const originX = ctx.x + ctx.facing * 52;
+  const beamY = ctx.groundY - ctx.bodyHeight * 0.48;
+  const beamLen = 500;
+  const beamCenterX = originX + ctx.facing * (beamLen / 2);
+
+  ctx.scene.cameras.main.shake(310, 0.016);
+
+  const flare = ctx.scene.add
+    .circle(originX, beamY, 46, 0xfacc15, 0.65)
+    .setStrokeStyle(6, 0xfef9c3, 0.98)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_FRONT_DEPTH + 2);
+
+  const outerBeam = ctx.scene.add
+    .rectangle(beamCenterX, beamY, beamLen, 78, 0xeab308, 0.68)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setScale(0.1, 0.5)
+    .setDepth(JUTSU_FRONT_DEPTH);
+  const innerBeam = ctx.scene.add
+    .rectangle(beamCenterX, beamY, beamLen, 34, 0xfefce8, 0.98)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setScale(0.1, 0.4)
+    .setDepth(JUTSU_FRONT_DEPTH + 1);
+
+  ctx.scene.tweens.add({
+    targets: [outerBeam, innerBeam],
+    scaleX: 1.05,
+    scaleY: 1.28,
+    duration: 150,
+    ease: 'Cubic.Out',
+    onComplete: () => {
+      ctx.scene.tweens.add({
+        targets: [outerBeam, innerBeam],
+        scaleY: 0.14,
+        alpha: 0,
+        delay: 290,
+        duration: 240,
+        ease: 'Quad.In',
+        onComplete: () => {
+          outerBeam.destroy();
+          innerBeam.destroy();
+        }
+      });
+    }
+  });
+
+  ctx.scene.tweens.add({
+    targets: flare,
+    scale: 1.9,
+    alpha: 0,
+    delay: 260,
+    duration: 260,
+    onComplete: () => flare.destroy()
+  });
+
+  // Golden Ki shock rings & Super Saiyan electric sparks streaking along Final Flash
+  for (let i = 0; i < 7; i += 1) {
+    const ring = ctx.scene.add
+      .ellipse(originX + ctx.facing * 26, beamY, 26, 98, 0xfacc15, 0)
+      .setStrokeStyle(5, i % 2 === 0 ? 0xfef08a : 0xffffff, 0.96)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(JUTSU_FRONT_DEPTH + 2);
+    ctx.scene.tweens.add({
+      targets: ring,
+      x: originX + ctx.facing * (beamLen - 14),
+      scaleY: 1.55,
+      alpha: 0,
+      delay: i * 44,
+      duration: 330,
+      ease: 'Quad.Out',
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  // Crackling Super Saiyan lightning bolts around the beam & caster
+  for (let b = 0; b < 5; b += 1) {
+    ctx.scene.time.delayedCall(b * 75, () => {
+      if (!ctx.scene.scene.isActive()) {
+        return;
+      }
+      const bolt = ctx.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setDepth(JUTSU_FRONT_DEPTH + 3);
+      bolt.lineStyle(3, 0xfef08a, 0.95);
+      let bx = originX + ctx.facing * Phaser.Math.Between(10, 260);
+      let by = beamY + Phaser.Math.Between(-54, 54);
+      bolt.beginPath();
+      bolt.moveTo(bx, by);
+      for (let seg = 0; seg < 4; seg += 1) {
+        bx += ctx.facing * Phaser.Math.Between(28, 56);
+        by += Phaser.Math.Between(-36, 36);
+        bolt.lineTo(bx, by);
+      }
+      bolt.strokePath();
+      ctx.scene.tweens.add({
+        targets: bolt,
+        alpha: 0,
+        duration: 150,
+        onComplete: () => bolt.destroy()
+      });
+    });
+  }
+}
+
+function spawnMalevolentShrineFx(ctx: SpecialFxContext): void {
+  const centerY = ctx.groundY - ctx.bodyHeight * 0.5;
+  ctx.scene.cameras.main.shake(320, 0.016);
+
+  // Spectral Crimson Shrine gate rising behind Sukuna
+  const shrine = ctx.scene.add.graphics({ x: ctx.x, y: ctx.groundY }).setDepth(JUTSU_DEPTH - 1);
+  shrine.fillStyle(0x7f1d1d, 0.72);
+  shrine.lineStyle(4, 0xef4444, 0.92);
+  shrine.fillRect(-130, -210, 22, 210);
+  shrine.fillRect(108, -210, 22, 210);
+  shrine.fillRect(-170, -235, 340, 26);
+  shrine.fillRect(-150, -180, 300, 16);
+  shrine.strokeRect(-170, -235, 340, 26);
+  shrine.setScale(1, 0.2).setAlpha(0.95);
+  ctx.scene.tweens.add({
+    targets: shrine,
+    scaleY: 1,
+    duration: 210,
+    ease: 'Back.Out',
+    onComplete: () => {
+      ctx.scene.tweens.add({
+        targets: shrine,
+        alpha: 0,
+        delay: 280,
+        duration: 240,
+        onComplete: () => shrine.destroy()
+      });
+    }
+  });
+
+  // Dark crimson domain dome expanding across the arena
+  const domain = ctx.scene.add
+    .circle(ctx.x, centerY, 50, 0x991b1b, 0.36)
+    .setStrokeStyle(7, 0xef4444, 0.98)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_DEPTH);
+  ctx.scene.tweens.add({
+    targets: domain,
+    scale: 8.6,
+    alpha: 0,
+    duration: 580,
+    ease: 'Cubic.Out',
+    onComplete: () => domain.destroy()
+  });
+
+  // Relentless Cleave & Dismantle slash cross-cuts across the arena
+  for (let wave = 0; wave < 4; wave += 1) {
+    ctx.scene.time.delayedCall(wave * 105, () => {
+      if (!ctx.scene.scene.isActive()) {
+        return;
+      }
+      for (let s = 0; s < 6; s += 1) {
+        const sx = ctx.x + Phaser.Math.Between(-300, 300);
+        const sy = ctx.groundY - Phaser.Math.Between(28, 210);
+        const angle = Phaser.Math.Between(-75, 75);
+        const slash = ctx.scene.add
+          .rectangle(sx, sy, Phaser.Math.Between(125, 215), 6, s % 2 === 0 ? 0xef4444 : 0xffffff, 0.96)
+          .setAngle(angle)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(JUTSU_FRONT_DEPTH + 1);
+        const darkCut = ctx.scene.add
+          .rectangle(sx, sy, Phaser.Math.Between(100, 180), 4, 0x09090b, 0.92)
+          .setAngle(angle)
+          .setDepth(JUTSU_FRONT_DEPTH + 2);
+
+        ctx.scene.tweens.add({
+          targets: [slash, darkCut],
+          scaleX: 1.55,
+          scaleY: 0.25,
+          alpha: 0,
+          duration: 190,
+          ease: 'Cubic.Out',
+          onComplete: () => {
+            slash.destroy();
+            darkCut.destroy();
+          }
+        });
+      }
+    });
+  }
+}
+
+function spawnGodspeedFx(ctx: SpecialFxContext): void {
+  const midY = ctx.groundY - ctx.bodyHeight * 0.48;
+  spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0x22d3ee, 0xe0f2fe);
+
+  // Godspeed electric halo around caster
+  const halo = ctx.scene.add
+    .circle(ctx.x, midY, 54, 0x22d3ee, 0.22)
+    .setStrokeStyle(5, 0xe0f2fe, 0.95)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_FRONT_DEPTH);
+  ctx.scene.tweens.add({
+    targets: halo,
+    x: ctx.x + ctx.facing * 220,
+    scale: 1.75,
+    alpha: 0,
+    duration: 460,
+    ease: 'Cubic.Out',
+    onComplete: () => halo.destroy()
+  });
+
+  for (let i = 0; i < 5; i += 1) {
+    ctx.scene.time.delayedCall(i * 80, () => {
+      if (!ctx.scene.scene.isActive()) {
+        return;
+      }
+      const baseX = ctx.x + ctx.facing * (48 + i * 44);
+      const g = ctx.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setDepth(JUTSU_FRONT_DEPTH + 1);
+
+      // Sky-to-ground thunderbolt pillar
+      g.lineStyle(5, 0x22d3ee, 0.92);
+      let sx = baseX;
+      let sy = ctx.groundY - 360;
+      g.beginPath();
+      g.moveTo(sx, sy);
+      for (let seg = 0; seg < 6; seg += 1) {
+        sx += Phaser.Math.Between(-24, 24);
+        sy += 60;
+        g.lineTo(sx, sy);
+      }
+      g.strokePath();
+
+      // Horizontal jagged Kanmuru discharge
+      g.lineStyle(4, 0x67e8f9, 0.95);
+      for (let b = 0; b < 3; b += 1) {
+        let px = baseX;
+        let py = midY + Phaser.Math.Between(-38, 30);
+        g.beginPath();
+        g.moveTo(px, py);
+        for (let seg = 0; seg < 4; seg += 1) {
+          px += ctx.facing * Phaser.Math.Between(18, 36);
+          py += Phaser.Math.Between(-36, 36);
+          g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+
+      g.lineStyle(2.5, 0xffffff, 1);
+      g.lineBetween(baseX, midY - 55, baseX + ctx.facing * 70, midY + 45);
+
+      ctx.scene.tweens.add({
+        targets: g,
+        alpha: 0,
+        duration: 190,
+        onComplete: () => g.destroy()
+      });
+
+      if (i === 4) {
+        ctx.scene.cameras.main.shake(240, 0.014);
+        const burst = ctx.scene.add
+          .circle(baseX + ctx.facing * 24, midY, 32, 0x67e8f9, 0.4)
+          .setStrokeStyle(6, 0xffffff, 0.98)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(JUTSU_FRONT_DEPTH + 2);
+        ctx.scene.tweens.add({
+          targets: burst,
+          scale: 3.9,
+          alpha: 0,
+          duration: 270,
+          onComplete: () => burst.destroy()
+        });
+      }
+    });
+  }
+}
+
+function spawnSeriousPunchFx(ctx: SpecialFxContext): void {
+  const originX = ctx.x + ctx.facing * 64;
+  const punchY = ctx.groundY - ctx.bodyHeight * 0.5;
+
+  ctx.scene.cameras.main.shake(380, 0.024);
+
+  // Manga high-contrast radial starburst around the fist impact
+  const starburst = ctx.scene.add
+    .graphics({ x: originX, y: punchY })
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_FRONT_DEPTH + 3);
+  starburst.fillStyle(0xffffff, 0.92);
+  for (let i = 0; i < 14; i += 1) {
+    const a = (Math.PI * 2 * i) / 14;
+    const len = i % 2 === 0 ? 190 : 120;
+    starburst.fillTriangle(
+      0,
+      0,
+      Math.cos(a - 0.06) * len,
+      Math.sin(a - 0.06) * len,
+      Math.cos(a + 0.06) * len,
+      Math.sin(a + 0.06) * len
+    );
+  }
+  ctx.scene.tweens.add({
+    targets: starburst,
+    scale: 1.75,
+    alpha: 0,
+    duration: 260,
+    ease: 'Cubic.Out',
+    onComplete: () => starburst.destroy()
+  });
+
+  // Blazing fist shockwave dome
+  const impactCore = ctx.scene.add
+    .circle(originX, punchY, 48, 0xfef08a, 0.85)
+    .setStrokeStyle(8, 0xef4444, 0.98)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_FRONT_DEPTH + 2);
+  ctx.scene.tweens.add({
+    targets: impactCore,
+    scale: 4.4,
+    alpha: 0,
+    duration: 340,
+    ease: 'Cubic.Out',
+    onComplete: () => impactCore.destroy()
+  });
+
+  // Expanding air-pressure rings rocketing across the arena
+  for (let i = 0; i < 7; i += 1) {
+    const ring = ctx.scene.add
+      .ellipse(originX + ctx.facing * 18, punchY, 30, 128 + i * 18, 0xfef9c3, 0)
+      .setStrokeStyle(5, i % 2 === 0 ? 0xfacc15 : 0xffffff, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(JUTSU_FRONT_DEPTH + 1);
+    ctx.scene.tweens.add({
+      targets: ring,
+      x: originX + ctx.facing * (160 + i * 66),
+      scaleX: 2.35,
+      scaleY: 1.85,
+      alpha: 0,
+      delay: i * 32,
+      duration: 380,
+      ease: 'Cubic.Out',
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  // Massive wind cone blast streaks + ground shock dust
+  for (let b = 0; b < 18; b += 1) {
+    const spreadY = (b - 8.5) * 16;
+    const streak = ctx.scene.add
+      .rectangle(originX, punchY + spreadY * 0.35, 110, b % 3 === 0 ? 8 : 5, b % 3 === 0 ? 0xef4444 : 0xfef08a, 0.95)
+      .setRotation(ctx.facing * (spreadY * 0.004))
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(JUTSU_FRONT_DEPTH);
+    ctx.scene.tweens.add({
+      targets: streak,
+      x: originX + ctx.facing * Phaser.Math.Between(270, 500),
+      y: punchY + spreadY * 1.45,
+      scaleX: 2.7,
+      alpha: 0,
+      duration: 380,
+      ease: 'Cubic.Out',
+      onComplete: () => streak.destroy()
+    });
+  }
+}
+
+function spawnTengaiShinseiFx(ctx: SpecialFxContext): void {
+  const impactX =
+    ctx.targetX != null
+      ? Phaser.Math.Clamp(ctx.targetX, ctx.x - 240, ctx.x + 240)
+      : ctx.x + ctx.facing * 140;
+  const startY = ctx.groundY - 470;
+
+  spawnRinneganCrest(ctx.scene, ctx.x, ctx.groundY - ctx.bodyHeight * 0.55, false);
+
+  // Towering purple Susanoo ribcage / spectral armor aura around Madara
+  const susanoo = ctx.scene.add.graphics({ x: ctx.x, y: ctx.groundY }).setBlendMode(Phaser.BlendModes.ADD).setDepth(JUTSU_DEPTH);
+  susanoo.lineStyle(6, 0xa855f7, 0.92);
+  susanoo.strokeEllipse(0, -110, 140, 210);
+  susanoo.lineStyle(3, 0xf3e8ff, 0.9);
+  for (let rib = 0; rib < 3; rib += 1) {
+    const ry = -60 - rib * 42;
+    susanoo.beginPath();
+    susanoo.arc(0, ry, 58 - rib * 8, -Math.PI * 0.85, -Math.PI * 0.15);
+    susanoo.strokePath();
+  }
+  ctx.scene.tweens.add({
+    targets: susanoo,
+    scale: 1.28,
+    alpha: 0,
+    duration: 560,
+    ease: 'Cubic.Out',
+    onComplete: () => susanoo.destroy()
+  });
+
+  // Colossal obsidian & purple chakra meteor dropping from the sky with fiery trail
+  const meteorAura = ctx.scene.add
+    .circle(impactX, startY, 118, 0x9333ea, 0.5)
+    .setStrokeStyle(7, 0xe9d5ff, 0.95)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_FRONT_DEPTH);
+  const meteorRock = ctx.scene.add
+    .circle(impactX, startY, 82, 0x1e1b4b, 0.98)
+    .setStrokeStyle(5, 0xa855f7, 0.98)
+    .setDepth(JUTSU_FRONT_DEPTH + 1);
+  const meteorTrail = ctx.scene.add
+    .triangle(impactX, startY - 90, -70, 90, 70, 90, 0, -160, 0xa855f7, 0.55)
+    .setBlendMode(Phaser.BlendModes.ADD)
+    .setDepth(JUTSU_FRONT_DEPTH);
+
+  ctx.scene.tweens.add({
+    targets: [meteorAura, meteorRock, meteorTrail],
+    y: ctx.groundY - 64,
+    duration: 310,
+    ease: 'Cubic.In',
+    onComplete: () => {
+      ctx.scene.cameras.main.shake(360, 0.022);
+      meteorTrail.destroy();
+
+      const shock = ctx.scene.add
+        .circle(impactX, ctx.groundY - 24, 52, 0xa855f7, 0.5)
+        .setStrokeStyle(9, 0xf3e8ff, 0.98)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(JUTSU_FRONT_DEPTH + 2);
+      ctx.scene.tweens.add({
+        targets: shock,
+        scale: 6.8,
+        alpha: 0,
+        duration: 420,
+        ease: 'Cubic.Out',
+        onComplete: () => shock.destroy()
+      });
+
+      for (let d = 0; d < 18; d += 1) {
+        const angle = -Math.PI + (Math.PI * d) / 17;
+        const shard = ctx.scene.add
+          .rectangle(impactX, ctx.groundY - 14, 20, 15, d % 2 === 0 ? 0x312e81 : 0xc084fc, 0.95)
+          .setAngle(Phaser.Math.Between(0, 360))
+          .setDepth(JUTSU_FRONT_DEPTH + 1);
+        ctx.scene.tweens.add({
+          targets: shard,
+          x: impactX + Math.cos(angle) * Phaser.Math.Between(150, 340),
+          y: ctx.groundY + Math.sin(angle) * Phaser.Math.Between(100, 245),
+          angle: shard.angle + 220,
+          alpha: 0,
+          duration: 440,
+          ease: 'Cubic.Out',
+          onComplete: () => shard.destroy()
+        });
+      }
+
+      ctx.scene.tweens.add({
+        targets: [meteorAura, meteorRock],
+        scale: 1.35,
+        alpha: 0,
+        duration: 250,
+        onComplete: () => {
+          meteorAura.destroy();
+          meteorRock.destroy();
+        }
+      });
+    }
+  });
+}
+
+function spawnDetroitSmashFx(ctx: SpecialFxContext): void {
+  const midY = ctx.groundY - ctx.bodyHeight * 0.48;
+  spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0x22c55e, 0x86efac);
+
+  // Full Cowling emerald lightning crackling during Deku's rush
+  for (let i = 0; i < 4; i += 1) {
+    ctx.scene.time.delayedCall(i * 95, () => {
+      if (!ctx.scene.scene.isActive()) {
+        return;
+      }
+      const isFinisher = i === 3;
+      const strikeX = ctx.x + ctx.facing * (74 + i * 48);
+
+      const bolt = ctx.scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD).setDepth(JUTSU_FRONT_DEPTH + 2);
+      bolt.lineStyle(4, 0x4ade80, 0.95);
+      for (let b = 0; b < 3; b += 1) {
+        let bx = strikeX - ctx.facing * 30;
+        let by = midY + Phaser.Math.Between(-36, 36);
+        bolt.beginPath();
+        bolt.moveTo(bx, by);
+        for (let seg = 0; seg < 4; seg += 1) {
+          bx += ctx.facing * Phaser.Math.Between(18, 34);
+          by += Phaser.Math.Between(-34, 34);
+          bolt.lineTo(bx, by);
+        }
+        bolt.strokePath();
+      }
+      ctx.scene.tweens.add({ targets: bolt, alpha: 0, duration: 170, onComplete: () => bolt.destroy() });
+
+      const ring = ctx.scene.add
+        .ellipse(strikeX, midY, 26, isFinisher ? 130 : 84, 0x22c55e, 0.25)
+        .setStrokeStyle(5, isFinisher ? 0xffffff : 0x86efac, 0.96)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(JUTSU_FRONT_DEPTH + 1);
+      ctx.scene.tweens.add({
+        targets: ring,
+        x: strikeX + ctx.facing * (isFinisher ? 170 : 70),
+        scaleX: isFinisher ? 2.4 : 1.5,
+        scaleY: isFinisher ? 1.8 : 1.2,
+        alpha: 0,
+        duration: isFinisher ? 360 : 220,
+        ease: 'Cubic.Out',
+        onComplete: () => ring.destroy()
+      });
+
+      if (isFinisher) {
+        ctx.scene.cameras.main.shake(290, 0.017);
+        const burst = ctx.scene.add
+          .circle(strikeX + ctx.facing * 26, midY, 40, 0x4ade80, 0.55)
+          .setStrokeStyle(7, 0xffffff, 0.98)
+          .setBlendMode(Phaser.BlendModes.ADD)
+          .setDepth(JUTSU_FRONT_DEPTH + 2);
+        ctx.scene.tweens.add({
+          targets: burst,
+          scale: 4.1,
+          alpha: 0,
+          duration: 320,
+          ease: 'Cubic.Out',
+          onComplete: () => burst.destroy()
+        });
+      }
+    });
+  }
+}
+
+function spawnHowitzerImpactFx(ctx: SpecialFxContext): void {
+  const midY = ctx.groundY - ctx.bodyHeight * 0.48;
+  spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xf97316, 0xfacc15);
+
+  // Whirling nitroglycerin explosion tornado propelling Bakugo forward
+  for (let w = 0; w < 5; w += 1) {
+    ctx.scene.time.delayedCall(w * 72, () => {
+      if (!ctx.scene.scene.isActive()) {
+        return;
+      }
+      const rx = ctx.x + ctx.facing * (36 + w * 46);
+      const vortex = ctx.scene.add
+        .ellipse(rx, midY, 86, 42, w % 2 === 0 ? 0xf97316 : 0xfacc15, 0.45)
+        .setStrokeStyle(4, 0xfef08a, 0.95)
+        .setAngle(w % 2 === 0 ? -18 : 18)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(JUTSU_FRONT_DEPTH);
+      ctx.scene.tweens.add({
+        targets: vortex,
+        scaleX: 1.9,
+        scaleY: 1.5,
+        angle: vortex.angle + ctx.facing * 140,
+        alpha: 0,
+        duration: 240,
+        ease: 'Cubic.Out',
+        onComplete: () => vortex.destroy()
+      });
+    });
+  }
+
+  // Massive Howitzer finisher detonation
+  ctx.scene.time.delayedCall(270, () => {
+    if (!ctx.scene.scene.isActive()) {
+      return;
+    }
+    const boomX = ctx.x + ctx.facing * 205;
+    ctx.scene.cameras.main.shake(310, 0.019);
+
+    const core = ctx.scene.add
+      .circle(boomX, midY, 52, 0xfef08a, 0.85)
+      .setStrokeStyle(8, 0xf97316, 0.98)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(JUTSU_FRONT_DEPTH + 2);
+    ctx.scene.tweens.add({
+      targets: core,
+      scale: 4.5,
+      alpha: 0,
+      duration: 360,
+      ease: 'Cubic.Out',
+      onComplete: () => core.destroy()
+    });
+
+    for (let s = 0; s < 16; s += 1) {
+      const a = (Math.PI * 2 * s) / 16;
+      const ember = ctx.scene.add
+        .circle(boomX, midY, Phaser.Math.Between(5, 9), s % 2 === 0 ? 0xf97316 : 0xfacc15, 0.96)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(JUTSU_FRONT_DEPTH + 2);
+      ctx.scene.tweens.add({
+        targets: ember,
+        x: boomX + Math.cos(a) * Phaser.Math.Between(140, 260),
+        y: midY + Math.sin(a) * Phaser.Math.Between(110, 220),
+        alpha: 0,
+        scale: 0.2,
+        duration: 340,
+        ease: 'Cubic.Out',
+        onComplete: () => ember.destroy()
+      });
+    }
+  });
+}
+
+function spawnFlashfreezeHeatwaveFx(ctx: SpecialFxContext): void {
+  const originX = ctx.x + ctx.facing * 42;
+  const midY = ctx.groundY - ctx.bodyHeight * 0.48;
+
+  ctx.scene.cameras.main.shake(270, 0.015);
+
+  // Phase 1: Towering Heaven-Piercing Ice Wall erupting forward
+  for (let i = 0; i < 6; i += 1) {
+    ctx.scene.time.delayedCall(i * 36, () => {
+      if (!ctx.scene.scene.isActive()) {
+        return;
+      }
+      const spikeX = originX + ctx.facing * (55 + i * 68);
+      const spikeH = 120 + i * 26;
+      const ice = ctx.scene.add
+        .triangle(spikeX, ctx.groundY, -28, 0, 28, 0, ctx.facing * 14, -spikeH, i % 2 === 0 ? 0x38bdf8 : 0xbae6fd, 0.88)
+        .setStrokeStyle(3, 0xffffff, 0.95)
+        .setOrigin(0.5, 1)
+        .setScale(1, 0.2)
+        .setDepth(JUTSU_FRONT_DEPTH);
+      ctx.scene.tweens.add({
+        targets: ice,
+        scaleY: 1.05,
+        duration: 150,
+        ease: 'Back.Out',
+        onComplete: () => {
+          ctx.scene.tweens.add({
+            targets: ice,
+            alpha: 0,
+            delay: 160,
+            duration: 240,
+            onComplete: () => ice.destroy()
+          });
+        }
+      });
+    });
+  }
+
+  // Phase 2: Crimson Fire Flashfreeze Heatwave blast shattering the ice
+  ctx.scene.time.delayedCall(185, () => {
+    if (!ctx.scene.scene.isActive()) {
+      return;
+    }
+    ctx.scene.cameras.main.shake(250, 0.016);
+    const waveLen = 450;
+    const beam = ctx.scene.add
+      .rectangle(originX + ctx.facing * (waveLen * 0.5), midY, waveLen, 118, 0xf97316, 0.72)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(0.15, 0.8)
+      .setDepth(JUTSU_FRONT_DEPTH + 1);
+    const inner = ctx.scene.add
+      .rectangle(originX + ctx.facing * (waveLen * 0.5), midY, waveLen, 52, 0xfef08a, 0.95)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(0.15, 0.7)
+      .setDepth(JUTSU_FRONT_DEPTH + 2);
+
+    ctx.scene.tweens.add({
+      targets: [beam, inner],
+      scaleX: 1.06,
+      scaleY: 1.25,
+      duration: 180,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        ctx.scene.tweens.add({
+          targets: [beam, inner],
+          alpha: 0,
+          scaleY: 0.25,
+          duration: 260,
+          onComplete: () => {
+            beam.destroy();
+            inner.destroy();
+          }
+        });
+      }
+    });
+  });
+}
+
+function spawnUnitedStatesOfSmashFx(ctx: SpecialFxContext): void {
+  const originX = ctx.x + ctx.facing * 56;
+  const punchY = ctx.groundY - ctx.bodyHeight * 0.5;
+  spawnSteamPillars(ctx.scene, ctx.x, ctx.groundY, 0xfacc15, 0xef4444);
+
+  ctx.scene.time.delayedCall(210, () => {
+    if (!ctx.scene.scene.isActive()) {
+      return;
+    }
+    const impactX = ctx.x + ctx.facing * 185;
+    ctx.scene.cameras.main.shake(380, 0.023);
+
+    // Towering golden-white One For All tornado funnel rising from the impact
+    for (let t = 0; t < 7; t += 1) {
+      const twisterRing = ctx.scene.add
+        .ellipse(impactX, ctx.groundY - 22 - t * 44, 70 + t * 28, 28, t % 2 === 0 ? 0xfacc15 : 0xfef08a, 0.35)
+        .setStrokeStyle(5, t % 2 === 0 ? 0xffffff : 0xef4444, 0.96)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(JUTSU_FRONT_DEPTH + 1);
+      ctx.scene.tweens.add({
+        targets: twisterRing,
+        scaleX: 2.3,
+        scaleY: 1.7,
+        y: twisterRing.y - 75,
+        alpha: 0,
+        delay: t * 32,
+        duration: 420,
+        ease: 'Cubic.Out',
+        onComplete: () => twisterRing.destroy()
+      });
+    }
+
+    const megaCore = ctx.scene.add
+      .circle(impactX, punchY, 54, 0xfef08a, 0.85)
+      .setStrokeStyle(9, 0xef4444, 0.98)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(JUTSU_FRONT_DEPTH + 2);
+    ctx.scene.tweens.add({
+      targets: megaCore,
+      scale: 4.8,
+      alpha: 0,
+      duration: 380,
+      ease: 'Cubic.Out',
+      onComplete: () => megaCore.destroy()
+    });
+
+    // Forward hero shockwave streaks
+    for (let s = 0; s < 14; s += 1) {
+      const spreadY = (s - 6.5) * 18;
+      const streak = ctx.scene.add
+        .rectangle(originX, punchY + spreadY * 0.3, 120, s % 2 === 0 ? 7 : 4, s % 3 === 0 ? 0xef4444 : 0xfacc15, 0.95)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setDepth(JUTSU_FRONT_DEPTH);
+      ctx.scene.tweens.add({
+        targets: streak,
+        x: impactX + ctx.facing * Phaser.Math.Between(120, 320),
+        y: punchY + spreadY * 1.4,
+        scaleX: 2.2,
+        alpha: 0,
+        duration: 350,
+        ease: 'Cubic.Out',
+        onComplete: () => streak.destroy()
+      });
+    }
+  });
+}
+
+export function spawnSharinganCrest(scene: Phaser.Scene, x: number, y: number, mangekyou: boolean): void {
   const key = ensureSharinganTexture(scene, mangekyou);
   const crest = scene.add
     .image(x, y, key)
@@ -1462,7 +2404,7 @@ function spawnSharinganCrest(scene: Phaser.Scene, x: number, y: number, mangekyo
   });
 }
 
-function spawnRinneganCrest(scene: Phaser.Scene, x: number, y: number, inward: boolean): void {
+export function spawnRinneganCrest(scene: Phaser.Scene, x: number, y: number, inward: boolean): void {
   const key = ensureRinneganTexture(scene);
   const crest = scene.add
     .image(x, y, key)
@@ -1481,7 +2423,7 @@ function spawnRinneganCrest(scene: Phaser.Scene, x: number, y: number, inward: b
   });
 }
 
-function spawnHiraishinSeal(scene: Phaser.Scene, x: number, y: number): void {
+export function spawnHiraishinSeal(scene: Phaser.Scene, x: number, y: number): void {
   const key = ensureHiraishinSealTexture(scene);
   const seal = scene.add
     .image(x, y, key)
@@ -1499,7 +2441,7 @@ function spawnHiraishinSeal(scene: Phaser.Scene, x: number, y: number): void {
   });
 }
 
-function spawnSteamPillars(scene: Phaser.Scene, x: number, groundY: number, colorA: number, colorB: number): void {
+export function spawnSteamPillars(scene: Phaser.Scene, x: number, groundY: number, colorA: number, colorB: number): void {
   for (let i = 0; i < 7; i += 1) {
     const offset = Phaser.Math.Between(-40, 40);
     const bar = scene.add
@@ -1520,7 +2462,7 @@ function spawnSteamPillars(scene: Phaser.Scene, x: number, groundY: number, colo
   }
 }
 
-function spawnSandSwirl(scene: Phaser.Scene, x: number, groundY: number, count: number): void {
+export function spawnSandSwirl(scene: Phaser.Scene, x: number, groundY: number, count: number): void {
   for (let i = 0; i < count; i += 1) {
     const grain = scene.add
       .circle(x + Phaser.Math.Between(-50, 50), groundY - Phaser.Math.Between(6, 32), 6, 0xf59e0b, 0.92)
@@ -1541,7 +2483,7 @@ function ctxTweenSand(scene: Phaser.Scene, grain: Phaser.GameObjects.Arc, origin
   });
 }
 
-function ensureRasenganTexture(
+export function ensureRasenganTexture(
   scene: Phaser.Scene,
   outerColor: number,
   innerColor: number,
@@ -1590,7 +2532,7 @@ function ensureRasenganTexture(
   return key;
 }
 
-function ensureSharinganTexture(scene: Phaser.Scene, mangekyou: boolean): string {
+export function ensureSharinganTexture(scene: Phaser.Scene, mangekyou: boolean): string {
   const key = mangekyou ? 'vfx-mangekyou' : 'vfx-sharingan';
   if (scene.textures.exists(key)) {
     return key;
@@ -1656,7 +2598,7 @@ function ensureSharinganTexture(scene: Phaser.Scene, mangekyou: boolean): string
   return key;
 }
 
-function ensureRinneganTexture(scene: Phaser.Scene): string {
+export function ensureRinneganTexture(scene: Phaser.Scene): string {
   const key = 'vfx-rinnegan';
   if (scene.textures.exists(key)) {
     return key;
@@ -1684,7 +2626,7 @@ function ensureRinneganTexture(scene: Phaser.Scene): string {
   return key;
 }
 
-function ensureHiraishinSealTexture(scene: Phaser.Scene): string {
+export function ensureHiraishinSealTexture(scene: Phaser.Scene): string {
   const key = 'vfx-hiraishin';
   if (scene.textures.exists(key)) {
     return key;
@@ -1721,7 +2663,7 @@ function ensureHiraishinSealTexture(scene: Phaser.Scene): string {
   return key;
 }
 
-function ensureSakuraPetalTexture(scene: Phaser.Scene): string {
+export function ensureSakuraPetalTexture(scene: Phaser.Scene): string {
   const key = 'vfx-sakura-petal';
   if (scene.textures.exists(key)) {
     return key;
@@ -1749,7 +2691,7 @@ function ensureSakuraPetalTexture(scene: Phaser.Scene): string {
   return key;
 }
 
-function ensureHollowPurpleTexture(scene: Phaser.Scene): string {
+export function ensureHollowPurpleTexture(scene: Phaser.Scene): string {
   const key = 'vfx-hollow-purple';
   if (scene.textures.exists(key)) {
     return key;
@@ -1787,7 +2729,7 @@ function ensureHollowPurpleTexture(scene: Phaser.Scene): string {
   return key;
 }
 
-function ensureGetsugaTexture(scene: Phaser.Scene): string {
+export function ensureGetsugaTexture(scene: Phaser.Scene): string {
   const key = 'vfx-getsuga-crescent';
   if (scene.textures.exists(key)) {
     return key;

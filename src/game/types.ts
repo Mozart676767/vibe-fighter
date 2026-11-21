@@ -19,10 +19,10 @@ export const SCENE_KEYS = {
 export type SceneKey = (typeof SCENE_KEYS)[keyof typeof SCENE_KEYS];
 
 /**
- * Match modes selectable from the Play flow: local two-player versus, or a
- * single human player against a CPU-controlled opponent.
+ * Match modes selectable from the Play flow: local two-player versus, a
+ * single human player against a CPU-controlled opponent, or a 2v2 team brawl.
  */
-export type MatchMode = '1v1' | '1vcpu';
+export type MatchMode = '1v1' | '1vcpu' | '2v2';
 
 /**
  * The accumulated selections produced by the Play flow (mode -> level ->
@@ -33,6 +33,9 @@ export interface MatchConfig {
   stageId: string;
   p1CharacterId: string;
   p2CharacterId: string;
+  p1AllyCharacterId?: string;
+  p2AllyCharacterId?: string;
+  p2IsCpu?: boolean;
 }
 
 export type GameProfile = 'landscape' | 'portrait';

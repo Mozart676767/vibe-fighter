@@ -2,7 +2,9 @@ import * as Phaser from 'phaser';
 
 import { AUDIO_KEYS, playAudioCue } from '../game/core/audio';
 import { FIGHTER_CHARACTER_DEFINITIONS } from '../game/hero';
+import { createMenuBackdrop } from '../game/menuBackdrop';
 import { MY_FIGHTER_IDS } from '../game/myFighterLoader';
+import { playSfx, startMusic } from '../game/soundEffects';
 import { createSelectionCard, type SelectionCard } from '../game/ui';
 import { SCENE_KEYS, type MatchMode } from '../game/types';
 import { BaseScene } from './BaseScene';
@@ -21,32 +23,47 @@ const SELECTABLE_ROSTER = SELECTABLE_FIGHTER_IDS.flatMap((id) =>
   FIGHTER_CHARACTER_DEFINITIONS.filter((character) => character.id === id)
 );
 
-// Cards arrange into rows of up to 5 columns so large rosters stay clear and readable.
-const COLUMNS = SELECTABLE_ROSTER.length > 5 ? 5 : Math.max(1, SELECTABLE_ROSTER.length);
+// Cards arrange into up to 8 columns for large rosters (e.g. 24 fighters in 3 rows) so all cards fit on screen.
+const COLUMNS =
+  SELECTABLE_ROSTER.length > 21
+    ? 8
+    : SELECTABLE_ROSTER.length > 15
+      ? 7
+      : SELECTABLE_ROSTER.length > 5
+        ? 5
+        : Math.max(1, SELECTABLE_ROSTER.length);
 const ROWS = Math.max(1, Math.ceil(SELECTABLE_ROSTER.length / COLUMNS));
-const COL_GAP = COLUMNS >= 5 || SELECTABLE_ROSTER.length > 3 ? 24 : 48;
-const ROW_GAP = ROWS >= 3 ? 32 : 34;
+const COL_GAP = COLUMNS >= 8 ? 14 : COLUMNS >= 7 ? 16 : COLUMNS >= 5 || SELECTABLE_ROSTER.length > 3 ? 24 : 48;
+const ROW_GAP = ROWS >= 3 ? (COLUMNS >= 7 ? 24 : 32) : 34;
 const CARD_WIDTH =
   ROWS >= 3
-    ? Math.min(176, Math.floor((1180 - COL_GAP * (COLUMNS - 1)) / COLUMNS))
+    ? Math.min(176, Math.floor((1200 - COL_GAP * (COLUMNS - 1)) / COLUMNS))
     : ROWS > 1
       ? Math.min(200, Math.floor((1180 - COL_GAP * (COLUMNS - 1)) / COLUMNS))
       : Math.min(300, Math.floor((1180 - COL_GAP * (COLUMNS - 1)) / COLUMNS));
 const CARD_HEIGHT =
-  ROWS >= 3 ? 148 : ROWS > 1 ? Math.round(CARD_WIDTH * 1.14) : Math.round(CARD_WIDTH * 1.28);
+  ROWS >= 3
+    ? COLUMNS >= 7
+      ? 140
+      : 148
+    : ROWS > 1
+      ? Math.round(CARD_WIDTH * 1.14)
+      : Math.round(CARD_WIDTH * 1.28);
 
 interface PlayerCursor {
   index: number;
   locked: boolean;
+  picks: number[];
   outline: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
 }
 
 /**
- * Final step of the Play flow: pick fighters. In 1v1 both players drive their
- * own cursor (P1 = WASD, P2 = arrows) and cannot land on the other's pick. In
- * 1vCPU the player picks freely and the CPU then auto-selects a different
- * fighter. Each confirmation plays a lock-in flash before the match starts.
+ * Final step of the Play flow: pick fighters.
+ * - 1v1: P1 (WASD + Space) & P2 (Arrows + Enter) each pick 1 fighter.
+ * - 1vCPU: P1 picks 1 fighter, then CPU picks 1.
+ * - 2v2: Each team picks 2 fighters; Team 2 defaults to CPU (press Tab or click
+ *   the toggle to switch Team 2 to 2P Arrows).
  */
 export class CharacterSelectScene extends BaseScene {
   private mode: MatchMode = '1v1';
@@ -55,6 +72,9 @@ export class CharacterSelectScene extends BaseScene {
   private cardPositions: Array<{ x: number; y: number }> = [];
   private p1!: PlayerCursor;
   private p2!: PlayerCursor;
+  private team2IsCpu = true;
+  private team2ToggleText?: Phaser.GameObjects.Text;
+  private lockBadges: Phaser.GameObjects.Text[] = [];
   private transitioning = false;
 
   constructor() {
@@ -69,32 +89,112 @@ export class CharacterSelectScene extends BaseScene {
   create(): void {
     this.cards = [];
     this.cardPositions = [];
+    this.lockBadges = [];
     this.transitioning = false;
+    this.team2IsCpu = this.mode === '1vcpu' || this.mode === '2v2';
 
     this.markActiveScene(SCENE_KEYS.CharacterSelect);
-    this.cameras.main.setBackgroundColor(0x020617);
-    this.createHeading(
-      'Select Fighter',
-      this.mode === '1v1' ? 'P1 = WASD + Space   •   P2 = Arrows + Enter' : 'WASD / Arrows to choose • Enter to confirm'
-    );
+    startMusic('menu', this.app.settingsStore);
+
+    const cleanupBackdrop = createMenuBackdrop(this, {
+      stageKey: 'crimson-eclipse-stage',
+      showFighters: false,
+      scrimAlpha: 0.78
+    });
+
+    const subtitle =
+      this.mode === '1v1'
+        ? 'P1 = WASD + Space   •   P2 = Arrows + Enter'
+        : this.mode === '2v2'
+          ? 'Pick 2 Fighters per Team   •   WASD / Arrows + Confirm'
+          : 'WASD / Arrows to choose • Enter to confirm';
+
+    this.createHeading('Select Fighter', subtitle);
+
+    if (this.mode === '2v2') {
+      this.buildTeam2Toggle();
+    }
 
     this.buildCards();
     this.buildCursors();
     this.registerInput();
 
-    this.createFooterHint('Esc to go back');
+    this.createFooterHint(this.mode === '2v2' ? 'Tab: toggle Team 2 (CPU / 2P) • Esc to go back' : 'Esc to go back');
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      cleanupBackdrop();
+      this.lockBadges.forEach((badge) => badge.destroy());
+      this.lockBadges = [];
+      this.team2ToggleText?.destroy();
+      this.team2ToggleText = undefined;
       this.cards.forEach((card) => card.destroy());
       this.cards = [];
     });
+  }
+
+  private get picksPerTeam(): number {
+    return this.mode === '2v2' ? 2 : 1;
+  }
+
+  private buildTeam2Toggle(): void {
+    const { centerX } = this.cameras.main;
+    this.team2ToggleText = this.add
+      .text(centerX, 120, '', {
+        color: '#f8fafc',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        padding: { x: 12, y: 5 }
+      })
+      .setOrigin(0.5)
+      .setDepth(25)
+      .setInteractive({ useHandCursor: true });
+
+    this.team2ToggleText.on('pointerdown', () => this.toggleTeam2Control());
+    this.refreshTeam2Toggle();
+  }
+
+  private refreshTeam2Toggle(): void {
+    if (!this.team2ToggleText) {
+      return;
+    }
+
+    const label = this.team2IsCpu
+      ? 'Team 2: CPU Team  [Tab / Click to switch to 2P]'
+      : 'Team 2: 2P Arrows  [Tab / Click to switch to CPU]';
+    this.team2ToggleText
+      .setText(label)
+      .setColor(this.team2IsCpu ? '#38bdf8' : '#f43f5e');
+  }
+
+  private toggleTeam2Control(): void {
+    if (this.mode !== '2v2' || this.transitioning || this.p2.picks.length > 0 || this.p1.locked) {
+      return;
+    }
+
+    this.team2IsCpu = !this.team2IsCpu;
+    this.p2.outline.setVisible(!this.team2IsCpu);
+    this.p2.label.setVisible(!this.team2IsCpu);
+    if (!this.team2IsCpu && this.p2.index === this.p1.index && this.cards.length > 1) {
+      this.p2.index = (this.p1.index + 1) % this.cards.length;
+    }
+    this.refreshCursor(this.p2);
+    this.refreshTeam2Toggle();
+    playSfx('ui-move', this.app.settingsStore.getState());
   }
 
   private buildCards(): void {
     const { centerX, centerY } = this.cameras.main;
     const roster = SELECTABLE_ROSTER;
     const totalHeight = ROWS * CARD_HEIGHT + ROW_GAP * (ROWS - 1);
-    const gridCenterY = ROWS >= 3 ? centerY + 38 : ROWS > 1 ? centerY + 38 : centerY + 24;
+    const gridCenterY =
+      this.mode === '2v2'
+        ? centerY + 46
+        : ROWS >= 3
+          ? centerY + 38
+          : ROWS > 1
+            ? centerY + 38
+            : centerY + 24;
     const startY = gridCenterY - totalHeight / 2 + CARD_HEIGHT / 2;
     const imageMaxSize = ROWS >= 3 ? 98 : ROWS > 1 ? Math.round(CARD_WIDTH * 0.72) : CARD_WIDTH - 36;
     const imageOffsetY = ROWS >= 3 ? -14 : ROWS > 1 ? -16 : -34;
@@ -123,16 +223,19 @@ export class CharacterSelectScene extends BaseScene {
         onClick: () => this.clickCard(index)
       });
 
+      card.container.setDepth(10);
       this.cards.push(card);
     });
   }
 
   private buildCursors(): void {
-    this.p1 = this.createCursor('P1', P1_COLOR, 0);
-    const p2Start = this.mode === '1v1' ? Math.min(1, this.cards.length - 1) : 0;
-    this.p2 = this.createCursor('P2', P2_COLOR, p2Start);
+    const p1Label = this.mode === '2v2' ? 'P1-1' : 'P1';
+    const p2Label = this.mode === '2v2' ? 'P2-1' : 'P2';
+    this.p1 = this.createCursor(p1Label, P1_COLOR, 0);
+    const p2Start = !this.team2IsCpu ? Math.min(1, this.cards.length - 1) : 0;
+    this.p2 = this.createCursor(p2Label, P2_COLOR, p2Start);
 
-    if (this.mode === '1vcpu') {
+    if (this.team2IsCpu) {
       this.p2.outline.setVisible(false);
       this.p2.label.setVisible(false);
     }
@@ -158,7 +261,7 @@ export class CharacterSelectScene extends BaseScene {
       .setOrigin(0.5)
       .setDepth(21);
 
-    return { index, locked: false, outline, label: text };
+    return { index, locked: false, picks: [], outline, label: text };
   }
 
   private refreshCursor(cursor: PlayerCursor): void {
@@ -172,24 +275,75 @@ export class CharacterSelectScene extends BaseScene {
     cursor.label.setPosition(position.x, position.y - CARD_HEIGHT / 2 - 18);
   }
 
+  private placePickBadge(index: number, label: string, color: number): void {
+    const position = this.cardPositions[index];
+    if (!position) {
+      return;
+    }
+
+    const badge = this.add
+      .text(position.x - CARD_WIDTH / 2 + 8, position.y - CARD_HEIGHT / 2 + 8, label, {
+        color: '#020617',
+        backgroundColor: colorToCss(color),
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        fontStyle: 'bold',
+        padding: { x: 5, y: 2 }
+      })
+      .setOrigin(0, 0)
+      .setDepth(22);
+
+    this.lockBadges.push(badge);
+  }
+
   private registerInput(): void {
     const keyboard = this.input.keyboard;
     if (!keyboard) {
       return;
     }
 
-    if (this.mode === '1v1') {
+    if (this.mode === '1v1' || (this.mode === '2v2' && !this.team2IsCpu)) {
       keyboard.on('keydown-A', () => this.movePlayer(this.p1, -1, 0));
       keyboard.on('keydown-D', () => this.movePlayer(this.p1, 1, 0));
       keyboard.on('keydown-W', () => this.movePlayer(this.p1, 0, -1));
       keyboard.on('keydown-S', () => this.movePlayer(this.p1, 0, 1));
-      keyboard.on('keydown-LEFT', () => this.movePlayer(this.p2, -1, 0));
-      keyboard.on('keydown-RIGHT', () => this.movePlayer(this.p2, 1, 0));
-      keyboard.on('keydown-UP', () => this.movePlayer(this.p2, 0, -1));
-      keyboard.on('keydown-DOWN', () => this.movePlayer(this.p2, 0, 1));
+      keyboard.on('keydown-LEFT', () => {
+        if (!this.team2IsCpu) {
+          this.movePlayer(this.p2, -1, 0);
+        } else {
+          this.movePlayer(this.p1, -1, 0);
+        }
+      });
+      keyboard.on('keydown-RIGHT', () => {
+        if (!this.team2IsCpu) {
+          this.movePlayer(this.p2, 1, 0);
+        } else {
+          this.movePlayer(this.p1, 1, 0);
+        }
+      });
+      keyboard.on('keydown-UP', () => {
+        if (!this.team2IsCpu) {
+          this.movePlayer(this.p2, 0, -1);
+        } else {
+          this.movePlayer(this.p1, 0, -1);
+        }
+      });
+      keyboard.on('keydown-DOWN', () => {
+        if (!this.team2IsCpu) {
+          this.movePlayer(this.p2, 0, 1);
+        } else {
+          this.movePlayer(this.p1, 0, 1);
+        }
+      });
       keyboard.on('keydown-SPACE', () => this.confirmPlayer(this.p1));
       keyboard.on('keydown-F', () => this.confirmPlayer(this.p1));
-      keyboard.on('keydown-ENTER', () => this.confirmPlayer(this.p2));
+      keyboard.on('keydown-ENTER', () => {
+        if (!this.team2IsCpu) {
+          this.confirmPlayer(this.p2);
+        } else {
+          this.confirmPlayer(this.p1);
+        }
+      });
     } else {
       const moveLeft = (): void => this.movePlayer(this.p1, -1, 0);
       const moveRight = (): void => this.movePlayer(this.p1, 1, 0);
@@ -208,16 +362,30 @@ export class CharacterSelectScene extends BaseScene {
       keyboard.on('keydown-ENTER', () => this.confirmPlayer(this.p1));
     }
 
+    if (this.mode === '2v2') {
+      keyboard.on('keydown-TAB', (event: KeyboardEvent) => {
+        event.preventDefault();
+        this.toggleTeam2Control();
+      });
+    }
+
     keyboard.on('keydown-ESC', () => this.goBack());
     keyboard.on('keydown-BACKSPACE', () => this.goBack());
   }
 
-  /**
-   * Moves a player's cursor across the roster grid. The two players can never
-   * select the same fighter: when a move would land on the other player's card
-   * the cursor hops over it (or shifts on the target row) if a free card
-   * exists, otherwise swaps picks when the other player isn't locked.
-   */
+  private isIndexTaken(index: number): boolean {
+    return this.p1.picks.includes(index) || this.p2.picks.includes(index);
+  }
+
+  private findFirstFreeIndex(exclude: number[] = []): number {
+    for (let i = 0; i < this.cards.length; i += 1) {
+      if (!this.isIndexTaken(i) && !exclude.includes(i)) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
   private movePlayer(cursor: PlayerCursor, dx: number, dy: number): void {
     if (this.transitioning || cursor.locked || this.cards.length === 0) {
       return;
@@ -237,45 +405,28 @@ export class CharacterSelectScene extends BaseScene {
     };
 
     let next = computeTarget(cursor.index, dx, dy);
+    const blockedByOtherCursor = !this.team2IsCpu && next === other.index;
+    const blockedByLockedPick = this.isIndexTaken(next);
 
-    if (this.mode === '1v1' && next === other.index) {
-      const skip = computeTarget(next, dx, dy);
-
-      if (skip !== cursor.index && skip !== other.index) {
-        next = skip;
-      } else if (dy !== 0 && COLUMNS > 1) {
-        const targetRow = Math.floor(next / COLUMNS);
-        const targetCol = next % COLUMNS;
-        let found: number | undefined;
-        for (let offset = 1; offset < COLUMNS; offset++) {
-          const candidate = targetRow * COLUMNS + Phaser.Math.Wrap(targetCol + offset, 0, COLUMNS);
-          if (candidate < count && candidate !== other.index && candidate !== cursor.index) {
-            found = candidate;
-            break;
-          }
+    if (blockedByOtherCursor || blockedByLockedPick) {
+      let attempts = 0;
+      let candidate = next;
+      while (attempts < count) {
+        candidate = computeTarget(candidate, dx || (dy !== 0 ? 1 : 1), dx !== 0 ? 0 : dy);
+        if (candidate !== cursor.index && !this.isIndexTaken(candidate) && (this.team2IsCpu || candidate !== other.index)) {
+          next = candidate;
+          break;
         }
-        if (found !== undefined) {
-          next = found;
-        } else if (!other.locked) {
-          other.index = cursor.index;
-          cursor.index = next;
-          this.refreshCursor(cursor);
-          this.refreshCursor(other);
-          return;
-        } else {
-          return;
-        }
-      } else if (!other.locked) {
-        other.index = cursor.index;
-        cursor.index = next;
-        this.refreshCursor(cursor);
-        this.refreshCursor(other);
-        return;
-      } else {
+        attempts += 1;
+      }
+      if (this.isIndexTaken(next) || (!this.team2IsCpu && next === other.index)) {
         return;
       }
     }
 
+    if (next !== cursor.index) {
+      playSfx('ui-move', this.app.settingsStore.getState());
+    }
     cursor.index = next;
     this.refreshCursor(cursor);
   }
@@ -285,42 +436,61 @@ export class CharacterSelectScene extends BaseScene {
   }
 
   private hoverCard(index: number): void {
-    if (this.transitioning || this.mode !== '1vcpu' || this.p1.locked) {
+    if (this.transitioning || !this.team2IsCpu || this.p1.locked || this.isIndexTaken(index)) {
       return;
     }
 
+    if (this.p1.index !== index) {
+      playSfx('ui-move', this.app.settingsStore.getState());
+    }
     this.p1.index = index;
     this.refreshCursor(this.p1);
   }
 
   private clickCard(index: number): void {
-    if (this.transitioning) {
+    if (this.transitioning || !this.team2IsCpu || this.p1.locked || this.isIndexTaken(index)) {
       return;
     }
 
-    if (this.mode === '1vcpu') {
-      this.p1.index = index;
-      this.refreshCursor(this.p1);
-      this.confirmPlayer(this.p1);
-    }
+    this.p1.index = index;
+    this.refreshCursor(this.p1);
+    this.confirmPlayer(this.p1);
   }
 
-  /**
-   * Locks a player's current pick with a flash. In 1v1 the match starts once
-   * both players have locked; in 1vCPU locking the player triggers the CPU pick.
-   * @param cursor - The player cursor confirming its selection.
-   */
   private confirmPlayer(cursor: PlayerCursor): void {
-    if (this.transitioning || cursor.locked) {
+    if (this.transitioning || cursor.locked || this.isIndexTaken(cursor.index)) {
       return;
     }
 
-    cursor.locked = true;
-    this.refreshCursor(cursor);
+    const isP1 = cursor === this.p1;
+    const color = isP1 ? P1_COLOR : P2_COLOR;
+    const pickNum = cursor.picks.length + 1;
+    const pickedIndex = cursor.index;
+
+    cursor.picks.push(pickedIndex);
     playAudioCue(this, AUDIO_KEYS.uiConfirm, this.app.settingsStore.getState());
 
-    this.cards[cursor.index].flashLock(() => {
-      if (this.mode === '1vcpu') {
+    if (this.mode === '2v2') {
+      const badgeLabel = isP1 ? `P1-${pickNum}` : `P2-${pickNum}`;
+      this.placePickBadge(pickedIndex, badgeLabel, color);
+    }
+
+    const doneForCursor = cursor.picks.length >= this.picksPerTeam;
+    if (doneForCursor) {
+      cursor.locked = true;
+      this.refreshCursor(cursor);
+    } else {
+      cursor.label.setText(isP1 ? 'P1-2' : 'P2-2');
+      cursor.index = this.findFirstFreeIndex(!this.team2IsCpu ? [this.otherCursor(cursor).index] : []);
+      this.refreshCursor(cursor);
+    }
+
+    this.cards[pickedIndex].flashLock(() => {
+      if (!doneForCursor) {
+        return;
+      }
+
+      if (this.team2IsCpu) {
         this.runCpuSelection();
         return;
       }
@@ -337,37 +507,69 @@ export class CharacterSelectScene extends BaseScene {
     }
 
     this.transitioning = true;
+    const needed = this.picksPerTeam;
+    const choices = this.cards.map((_, index) => index).filter((index) => !this.p1.picks.includes(index));
+    const shuffled = Phaser.Utils.Array.Shuffle([...choices]);
 
-    const choices = this.cards.map((_, index) => index).filter((index) => index !== this.p1.index);
-    const cpuIndex = choices.length > 0 ? Phaser.Math.RND.pick(choices) : this.p1.index;
+    const cpuPicks: number[] = [];
+    for (let i = 0; i < needed; i += 1) {
+      cpuPicks.push(shuffled[i] ?? this.p1.picks[0] ?? 0);
+    }
+    this.p2.picks = cpuPicks;
 
-    this.p2.index = cpuIndex;
+    this.p2.index = cpuPicks[0];
     this.p2.outline.setVisible(true);
     this.p2.label.setVisible(true);
-    this.p2.label.setText('CPU');
+    this.p2.label.setText(this.mode === '2v2' ? 'CPU-1' : 'CPU');
     this.refreshCursor(this.p2);
 
-    this.time.delayedCall(450, () => {
+    this.time.delayedCall(380, () => {
+      if (this.mode === '2v2') {
+        this.placePickBadge(cpuPicks[0], 'CPU-1', P2_COLOR);
+        playAudioCue(this, AUDIO_KEYS.uiConfirm, this.app.settingsStore.getState());
+        this.cards[cpuPicks[0]].flashLock(() => {
+          this.p2.index = cpuPicks[1];
+          this.p2.label.setText('CPU-2');
+          this.refreshCursor(this.p2);
+
+          this.time.delayedCall(360, () => {
+            this.p2.locked = true;
+            this.refreshCursor(this.p2);
+            this.placePickBadge(cpuPicks[1], 'CPU-2', P2_COLOR);
+            playAudioCue(this, AUDIO_KEYS.uiConfirm, this.app.settingsStore.getState());
+            this.cards[cpuPicks[1]].flashLock(() => this.startMatch());
+          });
+        });
+        return;
+      }
+
       this.p2.locked = true;
       this.refreshCursor(this.p2);
       playAudioCue(this, AUDIO_KEYS.uiConfirm, this.app.settingsStore.getState());
-      this.cards[cpuIndex].flashLock(() => this.startMatch());
+      this.cards[cpuPicks[0]].flashLock(() => this.startMatch());
     });
   }
 
   private startMatch(): void {
-    if (this.transitioning && this.mode === '1v1') {
+    if (this.transitioning && !this.team2IsCpu) {
       return;
     }
 
     this.transitioning = true;
     const roster = SELECTABLE_ROSTER;
+    const p1Main = roster[this.p1.picks[0] ?? this.p1.index].id;
+    const p2Main = roster[this.p2.picks[0] ?? this.p2.index].id;
+    const p1Ally = this.mode === '2v2' ? roster[this.p1.picks[1] ?? this.p1.index].id : undefined;
+    const p2Ally = this.mode === '2v2' ? roster[this.p2.picks[1] ?? this.p2.index].id : undefined;
 
     this.scene.start(SCENE_KEYS.Match, {
       mode: this.mode,
       stageId: this.stageId,
-      p1CharacterId: roster[this.p1.index].id,
-      p2CharacterId: roster[this.p2.index].id
+      p1CharacterId: p1Main,
+      p2CharacterId: p2Main,
+      p1AllyCharacterId: p1Ally,
+      p2AllyCharacterId: p2Ally,
+      p2IsCpu: this.team2IsCpu
     });
   }
 

@@ -1,6 +1,8 @@
 import * as Phaser from 'phaser';
 
 import { AUDIO_KEYS, playAudioCue } from '../game/core/audio';
+import { createMenuBackdrop } from '../game/menuBackdrop';
+import { playSfx, startMusic } from '../game/soundEffects';
 import { STAGE_DEFINITIONS } from '../game/stageConfig';
 import { createSelectionCard, type SelectionCard } from '../game/ui';
 import { SCENE_KEYS, type MatchMode } from '../game/types';
@@ -34,8 +36,16 @@ export class LevelSelectScene extends BaseScene {
     this.selectedIndex = 0;
 
     this.markActiveScene(SCENE_KEYS.LevelSelect);
-    this.cameras.main.setBackgroundColor(0x020617);
-    this.createHeading('Select Stage', this.mode === '1v1' ? '1 vs 1' : '1 vs CPU');
+    startMusic('menu', this.app.settingsStore);
+
+    const cleanupBackdrop = createMenuBackdrop(this, {
+      stageKey: 'crimson-eclipse-stage',
+      showFighters: false,
+      scrimAlpha: 0.72
+    });
+
+    const modeLabel = this.mode === '1v1' ? '1 vs 1' : this.mode === '1vcpu' ? '1 vs CPU' : '2 vs 2 Team Brawl';
+    this.createHeading('Select Stage', modeLabel);
 
     this.buildCards();
     this.registerInput();
@@ -44,6 +54,7 @@ export class LevelSelectScene extends BaseScene {
     this.createFooterHint('← → ↑ ↓ / WASD to choose • Enter / Space to confirm • Esc to go back');
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      cleanupBackdrop();
       this.cards.forEach((card) => card.destroy());
       this.cards = [];
     });
@@ -54,10 +65,12 @@ export class LevelSelectScene extends BaseScene {
     const count = STAGE_DEFINITIONS.length;
     const columns = count > 3 ? 3 : Math.max(1, count);
     const rows = Math.max(1, Math.ceil(count / columns));
-    const cardWidth = rows > 1 ? 330 : 380;
-    const cardHeight = rows > 1 ? 216 : 300;
-    const colGap = rows > 1 ? 36 : 60;
-    const rowGap = 24;
+    const cardWidth = rows >= 3 ? 300 : rows > 1 ? 330 : 380;
+    const cardHeight = rows >= 3 ? 166 : rows > 1 ? 216 : 300;
+    const colGap = rows >= 3 ? 32 : rows > 1 ? 36 : 60;
+    const rowGap = rows >= 3 ? 16 : 24;
+    const imageMaxSize = rows >= 3 ? 200 : cardWidth - 28;
+    const imageOffsetY = rows >= 3 ? -16 : rows > 1 ? -18 : -28;
 
     const totalHeight = rows * cardHeight + rowGap * (rows - 1);
     const gridCenterY = rows > 1 ? centerY + 34 : centerY + 10;
@@ -79,12 +92,13 @@ export class LevelSelectScene extends BaseScene {
         height: cardHeight,
         title: stage.label,
         texture: this.textures.exists(stage.key) ? stage.key : undefined,
-        imageMaxSize: cardWidth - 28,
-        imageOffsetY: rows > 1 ? -18 : -28,
+        imageMaxSize,
+        imageOffsetY,
         onHover: () => this.setSelection(index),
         onClick: () => this.confirm(index)
       });
 
+      card.container.setDepth(10);
       this.cards.push(card);
     });
   }
@@ -132,6 +146,9 @@ export class LevelSelectScene extends BaseScene {
   }
 
   private setSelection(index: number): void {
+    if (this.selectedIndex !== index) {
+      playSfx('ui-move', this.app.settingsStore.getState());
+    }
     this.selectedIndex = index;
     this.cards.forEach((card, cardIndex) => card.setSelected(cardIndex === index, ACCENT));
   }

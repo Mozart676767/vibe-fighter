@@ -26,6 +26,7 @@ export const GENERATED_TEXTURE_ASSETS: GeneratedTextureAsset[] = [
   generated('sample-bg-mid', 1280, 720, 'generated mid parallax layer'),
   generated('mode-card-1v1', 400, 300, 'mode card art for 1v1 battle'),
   generated('mode-card-1vcpu', 400, 300, 'mode card art for 1vCPU arcade mode'),
+  generated('mode-card-2v2', 400, 300, 'mode card art for 2v2 team brawl'),
   generated('rooftop-twilight-stage', 1774, 887, 'rooftop twilight arena stage background'),
   generated('rooftop-sunset-stage', 2048, 768, 'rooftop sunset arena stage background')
 ];
@@ -237,6 +238,79 @@ function generateModeCard1vCpu(scene: Phaser.Scene): void {
   graphics.strokeRoundedRect(110, 230, 180, 45, 8);
 
   graphics.generateTexture('mode-card-1vcpu', width, height);
+  graphics.destroy();
+}
+
+/**
+ * Generates the 2v2 Team Brawl Mode Selection Card texture.
+ */
+function generateModeCard2v2(scene: Phaser.Scene): void {
+  if (scene.textures.exists('mode-card-2v2')) {
+    return;
+  }
+
+  const width = 400;
+  const height = 300;
+  const graphics = scene.add.graphics();
+
+  // Dark arena card background
+  graphics.fillStyle(0x0b1120, 1);
+  graphics.fillRect(0, 0, width, height);
+
+  // Team Cyan vs Team Rose ambient split
+  graphics.fillStyle(0x22d3ee, 0.22);
+  graphics.fillCircle(95, 135, 115);
+  graphics.fillStyle(0xf43f5e, 0.22);
+  graphics.fillCircle(305, 135, 115);
+
+  // Subtle diagonal grid
+  graphics.lineStyle(1, 0x1e293b, 0.7);
+  for (let x = 20; x < width; x += 28) {
+    graphics.lineBetween(x, 10, x, height - 10);
+  }
+  for (let y = 20; y < height; y += 28) {
+    graphics.lineBetween(10, y, width - 10, y);
+  }
+
+  // Team 1 Back Fighter (Gold/Amber)
+  graphics.fillStyle(0xfacc15, 0.85);
+  graphics.fillRoundedRect(34, 84, 52, 106, 12);
+  graphics.fillCircle(60, 68, 19);
+
+  // Team 1 Front Fighter (Cyan)
+  graphics.fillStyle(0x38bdf8, 0.95);
+  graphics.fillRoundedRect(90, 68, 62, 126, 14);
+  graphics.fillCircle(121, 52, 22);
+  graphics.fillRect(142, 96, 34, 18);
+
+  // Team 2 Back Fighter (Purple)
+  graphics.fillStyle(0xa855f7, 0.85);
+  graphics.fillRoundedRect(314, 84, 52, 106, 12);
+  graphics.fillCircle(340, 68, 19);
+
+  // Team 2 Front Fighter (Crimson)
+  graphics.fillStyle(0xf43f5e, 0.95);
+  graphics.fillRoundedRect(248, 68, 62, 126, 14);
+  graphics.fillCircle(279, 52, 22);
+  graphics.fillRect(224, 96, 34, 18);
+
+  // Center Clash Spark
+  graphics.fillStyle(0xfacc15, 1);
+  graphics.fillCircle(200, 105, 22);
+  graphics.fillStyle(0xffffff, 1);
+  graphics.fillCircle(200, 105, 11);
+
+  // Outer emerald/gold border
+  graphics.lineStyle(3, 0x34d399, 0.9);
+  graphics.strokeRoundedRect(4, 4, width - 8, height - 8, 12);
+
+  // Bottom Badge
+  graphics.fillStyle(0x020617, 0.85);
+  graphics.fillRoundedRect(110, 230, 180, 45, 8);
+  graphics.lineStyle(2, 0x34d399, 1);
+  graphics.strokeRoundedRect(110, 230, 180, 45, 8);
+
+  graphics.generateTexture('mode-card-2v2', width, height);
   graphics.destroy();
 }
 
@@ -550,6 +624,7 @@ export function registerGeneratedAssets(scene: Phaser.Scene): void {
   // Mode Cards & Stage Backgrounds
   generateModeCard1v1(scene);
   generateModeCard1vCpu(scene);
+  generateModeCard2v2(scene);
   generateRooftopTwilightStage(scene);
   generateRooftopSunsetStage(scene);
 }

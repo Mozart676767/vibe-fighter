@@ -126,14 +126,14 @@ export const DEBUG_PANELS: DebugPanelDefinition[] = [
       </div>
       <p class="panel-subtitle">Combat (light = high, heavy = low)</p>
       <div class="bounds-editor">
-        <label class="number-row"><span>Max HP</span><input id="fighter-combat-maxHealth" type="number" min="50" max="300" step="5" /></label>
+        <label class="number-row"><span>Max HP</span><input id="fighter-combat-maxHealth" type="number" min="50" max="400" step="5" /></label>
         <label class="number-row"><span>High dmg</span><input id="fighter-combat-highDamage" type="number" min="1" max="50" step="1" /></label>
         <label class="number-row"><span>High kb</span><input id="fighter-combat-highKnockback" type="number" min="0" max="800" step="10" /></label>
         <label class="number-row"><span>High stun</span><input id="fighter-combat-highHitstun" type="number" min="0" max="1200" step="20" /></label>
         <label class="number-row"><span>Low dmg</span><input id="fighter-combat-lowDamage" type="number" min="1" max="50" step="1" /></label>
         <label class="number-row"><span>Low kb</span><input id="fighter-combat-lowKnockback" type="number" min="0" max="800" step="10" /></label>
         <label class="number-row"><span>Low stun</span><input id="fighter-combat-lowHitstun" type="number" min="0" max="1200" step="20" /></label>
-        <label class="number-row"><span>Special dmg</span><input id="fighter-combat-specialDamage" type="number" min="1" max="50" step="1" /></label>
+        <label class="number-row"><span>Special dmg</span><input id="fighter-combat-specialDamage" type="number" min="1" max="120" step="1" /></label>
         <label class="number-row"><span>Special kb</span><input id="fighter-combat-specialKnockback" type="number" min="0" max="800" step="10" /></label>
         <label class="number-row"><span>Special stun</span><input id="fighter-combat-specialHitstun" type="number" min="0" max="1200" step="20" /></label>
       </div>

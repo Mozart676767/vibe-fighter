@@ -20,6 +20,13 @@ import {
   type SpecialPowerConfig,
   type SpriteSnapshot
 } from './specialPowers';
+import { playSfx, playSpecialKindSfx } from './soundEffects';
+import {
+  getCharacterVictoryProfile,
+  triggerVictoryMotionAndFx,
+  type CharacterVictoryProfile,
+  type VictoryPoseAction
+} from './victoryAnimations';
 import type {
   AttackKind,
   AttackProfile,
@@ -191,6 +198,9 @@ export class Fighter {
   private specialTrailTimer = 0;
   private specialAnimDone = false;
   private specialFreezeTimer?: Phaser.Time.TimerEvent;
+  private victoryActive = false;
+  private victoryTimers: Phaser.Time.TimerEvent[] = [];
+  private victoryTweens: Phaser.Tweens.Tween[] = [];
   private readonly onSpecialStart?: (fighter: Fighter) => void;
 
   constructor(options: FighterOptions) {
@@ -256,6 +266,25 @@ export class Fighter {
     return this.locked || this.hitstunTimer > 0;
   }
 
+  /** Whether the fighter is currently standing on the ground. */
+  get isGrounded(): boolean {
+    return this.grounded;
+  }
+
+  /** Whether the fighter is currently holding a guard pose or in blockstun. */
+  get isBlocking(): boolean {
+    return (
+      (this.stunIsBlock && this.hitstunTimer > 0) ||
+      this.currentAnimKey === this.actionKeys.blockHigh ||
+      this.currentAnimKey === this.actionKeys.blockLow
+    );
+  }
+
+  /** Whether the fighter is currently reeling in hitstun from a clean hit. */
+  get isInHitstun(): boolean {
+    return !this.stunIsBlock && this.hitstunTimer > 0;
+  }
+
   /** The fighter's special meter charge (0..1). */
   get meter01(): number {
     return METER_MAX > 0 ? Phaser.Math.Clamp(this.meter / METER_MAX, 0, 1) : 0;
@@ -290,7 +319,9 @@ export class Fighter {
       return;
     }
 
-    this.gainMeter(blocked ? METER_GAIN_ON_BLOCK : METER_GAIN_ON_HIT);
+    const baseGain = blocked ? METER_GAIN_ON_BLOCK : METER_GAIN_ON_HIT;
+    const bonus = this.character.id === 'saitama' && !blocked ? 6 : 0;
+    this.gainMeter(baseGain + bonus);
   }
 
   /**
@@ -526,11 +557,25 @@ export class Fighter {
     }
 
     if (blocked) {
-      this.knockbackVel = attackerFacing * profile.knockback * 0.35;
+      const heavyChip = profile.kind === 'special' && profile.damage >= 50;
+      if (heavyChip) {
+        this.health = Math.max(0, this.health - Math.round(profile.damage * 0.25));
+      }
+      this.knockbackVel = attackerFacing * profile.knockback * (heavyChip ? 0.65 : 0.35);
       this.hitstunTimer = Math.max(this.hitstunTimer, BLOCKSTUN_SECONDS);
       this.stunIsBlock = true;
       this.stunBlockLow = this.currentAnimKey === this.actionKeys.blockLow;
       this.locked = false;
+
+      if (this.health <= 0) {
+        this.defeated = true;
+        this.locked = true;
+        this.grounded = true;
+        this.stunIsBlock = false;
+        this.hitstunTimer = 0;
+        this.clearSpecialTimers();
+        this.playState(this.actionKeys.knockdown, false);
+      }
       return;
     }
 
@@ -581,10 +626,76 @@ export class Fighter {
     this.currentAnimKey = '';
     this.currentReverse = false;
     this.clearSpecialTimers();
+    this.clearVictoryState();
 
-    this.sprite.setPosition(this.posX, this.groundY).setFlipX(this.facing === 1);
+    this.sprite.setPosition(this.posX, this.groundY).setFlipX(this.facing === 1).setAlpha(1).clearTint();
+    this.sprite.setScale(this.appliedScale);
     this.playState(this.actionKeys.idle, true);
     this.updateShadow();
+  }
+
+  /**
+   * Triggers this character's distinct victory animation sequence, physical
+   * choreography, and signature VFX burst when they win a match.
+   */
+  playVictory(): CharacterVictoryProfile {
+    this.clearSpecialTimers();
+    this.clearVictoryState();
+    this.victoryActive = true;
+    this.locked = true;
+    this.frozen = true;
+    this.grounded = true;
+    this.velocityY = 0;
+    this.knockbackVel = 0;
+    this.hitstunTimer = 0;
+    this.stunIsBlock = false;
+    this.attackConnected = true;
+    this.sprite.setPosition(this.posX, this.groundY).setAlpha(1).clearTint();
+    this.sprite.setScale(this.appliedScale);
+
+    const profile = getCharacterVictoryProfile(this.character.id);
+
+    let elapsedMs = 0;
+    profile.sequence.forEach((step, index) => {
+      const isLast = index === profile.sequence.length - 1;
+      const playStep = (): void => {
+        if (!this.victoryActive || !this.sprite?.scene) {
+          return;
+        }
+        const animKey = this.resolveVictoryAnimKey(step.action);
+        this.currentAnimKey = animKey;
+        this.currentReverse = false;
+        this.sprite.play({ key: animKey, repeat: isLast && step.action === 'idle' ? -1 : 0 }, true);
+      };
+
+      if (elapsedMs === 0) {
+        playStep();
+      } else {
+        this.victoryTimers.push(this.scene.time.delayedCall(elapsedMs, playStep));
+      }
+
+      elapsedMs += step.durationMs;
+    });
+
+    triggerVictoryMotionAndFx(
+      {
+        scene: this.scene,
+        sprite: this.sprite,
+        shadow: this.shadow,
+        groundY: this.groundY,
+        facing: this.facing,
+        baseScale: this.appliedScale,
+        registerTween: (tween) => {
+          this.victoryTweens.push(tween);
+        },
+        registerTimer: (timer) => {
+          this.victoryTimers.push(timer);
+        }
+      },
+      profile
+    );
+
+    return profile;
   }
 
   /**
@@ -596,6 +707,12 @@ export class Fighter {
     if (this.defeated) {
       this.playState(this.actionKeys.knockdown, false);
       this.applyKnockback(seconds);
+      this.updateShadow();
+      this.drawBoundsOverlay();
+      return;
+    }
+
+    if (this.victoryActive) {
       this.updateShadow();
       this.drawBoundsOverlay();
       return;
@@ -645,6 +762,7 @@ export class Fighter {
   /** Destroys the fighter's display objects. */
   destroy(): void {
     this.clearSpecialTimers();
+    this.clearVictoryState();
     this.sprite?.removeAllListeners();
     this.sprite?.destroy();
     this.shadow?.destroy();
@@ -802,6 +920,7 @@ export class Fighter {
       this.grounded = true;
       this.currentAnimKey = '';
       this.currentReverse = false;
+      playSfx('land', this.app.settingsStore.getState());
     }
 
     this.sprite.y = nextY;
@@ -824,10 +943,12 @@ export class Fighter {
       return;
     }
     if (input.light) {
+      playSfx('swing-light', this.app.settingsStore.getState());
       this.startOneShot(this.actionKeys.lightPunch);
       return;
     }
     if (input.heavy) {
+      playSfx('swing-heavy', this.app.settingsStore.getState());
       this.startOneShot(this.actionKeys.heavy);
       return;
     }
@@ -941,6 +1062,7 @@ export class Fighter {
     this.attackActiveLast = false;
     this.clearSpecialTimers();
 
+    playSfx('super-cutin', this.app.settingsStore.getState());
     this.onSpecialStart?.(this);
     spawnSpecialChargeFx(
       {
@@ -979,6 +1101,7 @@ export class Fighter {
    */
   private executeSpecial(): void {
     const power = this.specialPower;
+    playSpecialKindSfx(power.kind, this.app.settingsStore.getState());
 
     if (power.kind === 'teleport' && this.targetX !== null) {
       spawnSpecialTeleportFx(this.scene, this.posX, this.groundY, this.sprite.displayHeight);
@@ -1103,6 +1226,34 @@ export class Fighter {
     this.specialAnimDone = false;
   }
 
+  private resolveVictoryAnimKey(action: VictoryPoseAction): string {
+    switch (action) {
+      case 'light-punch':
+        return this.actionKeys.lightPunch;
+      case 'heavy-kick':
+        return this.actionKeys.heavy;
+      case 'jump':
+        return this.actionKeys.jump;
+      case 'special':
+        return this.actionKeys.special;
+      case 'special-charge':
+        return this.actionKeys.specialCharge;
+      case 'crouch':
+        return this.actionKeys.crouch;
+      case 'idle':
+      default:
+        return this.actionKeys.idle;
+    }
+  }
+
+  private clearVictoryState(): void {
+    this.victoryActive = false;
+    this.victoryTimers.forEach((timer) => timer.remove(false));
+    this.victoryTimers = [];
+    this.victoryTweens.forEach((tween) => tween.stop());
+    this.victoryTweens = [];
+  }
+
   /**
    * Opens a fresh hit window each time the attack box turns on after being off,
    * so a single animation with several attack-active spans connects once per
@@ -1156,6 +1307,7 @@ export class Fighter {
     this.currentAnimKey = this.actionKeys.jump;
     this.currentReverse = false;
     this.sprite.play({ key: this.actionKeys.jump, repeat: 0 }, true);
+    playSfx('jump', this.app.settingsStore.getState());
   }
 
   /**

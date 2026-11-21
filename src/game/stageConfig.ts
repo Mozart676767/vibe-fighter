@@ -2,6 +2,9 @@ import finalValleyUrl from '../assets/images/stage_final_valley_1794715906288.jp
 import martialArenaUrl from '../assets/images/stage_martial_arena_1794715906951.jpg';
 import sakuraShrineUrl from '../assets/images/stage_sakura_shrine_1794715907293.jpg';
 import shibuyaNightUrl from '../assets/images/stage_shibuya_night_1794715906880.jpg';
+import planetNamekUrl from '../assets/images/stage_planet_namek_1795229430220.jpg';
+import crimsonEclipseUrl from '../assets/images/stage_crimson_eclipse_1795229430326.jpg';
+import frostCitadelUrl from '../assets/images/stage_frost_citadel_1795229430419.jpg';
 import type { ImageAsset } from './assets';
 import type { StagePreviewDebugState } from './types';
 
@@ -83,6 +86,30 @@ export const STAGE_DEFINITIONS: StageDefinition[] = [
     url: sakuraShrineUrl,
     width: 1376,
     height: 768
+  },
+  {
+    id: 'planet-namek',
+    label: 'Planet Namek',
+    key: 'planet-namek-stage',
+    url: planetNamekUrl,
+    width: 1376,
+    height: 768
+  },
+  {
+    id: 'crimson-eclipse',
+    label: 'Crimson Eclipse',
+    key: 'crimson-eclipse-stage',
+    url: crimsonEclipseUrl,
+    width: 1376,
+    height: 768
+  },
+  {
+    id: 'frost-citadel',
+    label: 'Frost Citadel',
+    key: 'frost-citadel-stage',
+    url: frostCitadelUrl,
+    width: 1376,
+    height: 768
   }
 ];
 
@@ -118,6 +145,30 @@ export const STAGE_IMAGE_ASSETS: ImageAsset[] = [
     width: 1376,
     height: 768,
     usage: 'Sakura Shrine sunset courtyard stage background'
+  },
+  {
+    kind: 'image',
+    key: 'planet-namek-stage',
+    url: planetNamekUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Planet Namek green sky alien battlefield stage background'
+  },
+  {
+    kind: 'image',
+    key: 'crimson-eclipse-stage',
+    url: crimsonEclipseUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Crimson Eclipse cursed blood-moon shrine stage background'
+  },
+  {
+    kind: 'image',
+    key: 'frost-citadel-stage',
+    url: frostCitadelUrl,
+    width: 1376,
+    height: 768,
+    usage: 'Frost Citadel snowy mountain aurora dojo stage background'
   }
 ];
 

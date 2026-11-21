@@ -20,18 +20,24 @@ export abstract class BaseScene extends Phaser.Scene {
       .text(centerX, 56, title, {
         color: '#f8fafc',
         fontFamily: 'monospace',
-        fontSize: '34px'
+        fontSize: '34px',
+        stroke: '#020617',
+        strokeThickness: 6
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(10);
 
     if (subtitle) {
       this.add
         .text(centerX, 92, subtitle, {
-          color: '#94a3b8',
+          color: '#cbd5e1',
           fontFamily: 'monospace',
-          fontSize: '16px'
+          fontSize: '16px',
+          stroke: '#020617',
+          strokeThickness: 4
         })
-        .setOrigin(0.5);
+        .setOrigin(0.5)
+        .setDepth(10);
     }
   }
 

@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 
 import { AUDIO_KEYS, playAudioCue } from '../game/core/audio';
+import { playSfx, startMusic } from '../game/soundEffects';
 import { createTextButton, type TextButton } from '../game/ui';
 import { DEFAULT_SETTINGS } from '../game/settings';
 import { SCENE_KEYS } from '../game/types';
@@ -34,7 +35,9 @@ export class SettingsScene extends BaseScene {
   }
 
   create(): void {
+    this.selectedRow = 0;
     this.markActiveScene(SCENE_KEYS.Settings);
+    startMusic('menu', this.app.settingsStore);
     this.cameras.main.setBackgroundColor(0x020617);
     this.createHeading('Settings', '');
 
@@ -172,6 +175,9 @@ export class SettingsScene extends BaseScene {
   }
 
   private setSelection(index: number): void {
+    if (this.selectedRow !== index) {
+      playSfx('ui-move', this.app.settingsStore.getState());
+    }
     this.selectedRow = index;
     this.sfxDownButton.setSelected(index === 0);
     this.sfxUpButton.setSelected(index === 0);

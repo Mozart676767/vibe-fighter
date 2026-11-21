@@ -42,7 +42,16 @@ const FIGHTER_STAT_OVERRIDES: Record<string, Partial<FighterStats>> = {
   luffy: { walkSpeed: 255, airDrift: 220, jump: 1060 },
   gojo: { walkSpeed: 265, airDrift: 235, jump: 1040 },
   ichigo: { walkSpeed: 280, airDrift: 225, jump: 1030 },
-  tanjiro: { walkSpeed: 260, airDrift: 215, jump: 1020 }
+  tanjiro: { walkSpeed: 260, airDrift: 215, jump: 1020 },
+  vegeta: { walkSpeed: 275, airDrift: 235, jump: 1050 },
+  sukuna: { walkSpeed: 270, airDrift: 225, jump: 1040 },
+  killua: { walkSpeed: 300, airDrift: 250, jump: 1080 },
+  saitama: { walkSpeed: 325, airDrift: 270, jump: 1120 },
+  madara: { walkSpeed: 260, airDrift: 220, jump: 1030 },
+  deku: { walkSpeed: 280, airDrift: 240, jump: 1070 },
+  bakugo: { walkSpeed: 285, airDrift: 250, jump: 1085 },
+  todoroki: { walkSpeed: 255, airDrift: 215, jump: 1025 },
+  'all-might': { walkSpeed: 270, airDrift: 225, jump: 1055 }
 };
 
 /**
@@ -234,6 +243,100 @@ const FIGHTER_COMBAT_OVERRIDES: Record<string, Partial<FighterCombat>> = {
     specialDamage: 10,
     specialKnockback: 230,
     specialHitstun: 380
+  },
+  vegeta: {
+    maxHealth: 245,
+    highDamage: 9,
+    highKnockback: 210,
+    lowDamage: 15,
+    lowKnockback: 390,
+    specialDamage: 12,
+    specialKnockback: 250,
+    specialHitstun: 420
+  },
+  sukuna: {
+    maxHealth: 245,
+    highDamage: 9,
+    highKnockback: 205,
+    lowDamage: 15,
+    lowKnockback: 390,
+    specialDamage: 9,
+    specialKnockback: 220,
+    specialHitstun: 400
+  },
+  killua: {
+    maxHealth: 220,
+    highDamage: 8,
+    highKnockback: 195,
+    lowDamage: 14,
+    lowKnockback: 370,
+    specialDamage: 11,
+    specialKnockback: 230,
+    specialHitstun: 400
+  },
+  saitama: {
+    maxHealth: 340,
+    highDamage: 18,
+    highKnockback: 310,
+    highHitstun: 360,
+    lowDamage: 32,
+    lowKnockback: 560,
+    lowHitstun: 580,
+    specialDamage: 95,
+    specialKnockback: 620,
+    specialHitstun: 820
+  },
+  madara: {
+    maxHealth: 260,
+    highDamage: 9,
+    highKnockback: 210,
+    lowDamage: 16,
+    lowKnockback: 400,
+    specialDamage: 18,
+    specialKnockback: 300,
+    specialHitstun: 480
+  },
+  deku: {
+    maxHealth: 235,
+    highDamage: 9,
+    highKnockback: 205,
+    lowDamage: 16,
+    lowKnockback: 400,
+    specialDamage: 12,
+    specialKnockback: 250,
+    specialHitstun: 420
+  },
+  bakugo: {
+    maxHealth: 230,
+    highDamage: 9,
+    highKnockback: 215,
+    lowDamage: 16,
+    lowKnockback: 410,
+    specialDamage: 11,
+    specialKnockback: 260,
+    specialHitstun: 400
+  },
+  todoroki: {
+    maxHealth: 235,
+    highDamage: 8,
+    highKnockback: 200,
+    lowDamage: 15,
+    lowKnockback: 380,
+    specialDamage: 16,
+    specialKnockback: 270,
+    specialHitstun: 460
+  },
+  'all-might': {
+    maxHealth: 280,
+    highDamage: 12,
+    highKnockback: 250,
+    highHitstun: 320,
+    lowDamage: 20,
+    lowKnockback: 450,
+    lowHitstun: 500,
+    specialDamage: 40,
+    specialKnockback: 390,
+    specialHitstun: 620
   }
 };
 
@@ -250,14 +353,14 @@ export interface FighterCombatField {
 }
 
 export const FIGHTER_COMBAT_FIELDS: FighterCombatField[] = [
-  { id: 'maxHealth', label: 'Max HP', min: 50, max: 300, step: 5 },
+  { id: 'maxHealth', label: 'Max HP', min: 50, max: 400, step: 5 },
   { id: 'highDamage', label: 'High dmg', min: 1, max: 50, step: 1 },
   { id: 'highKnockback', label: 'High kb', min: 0, max: 800, step: 10 },
   { id: 'highHitstun', label: 'High stun', min: 0, max: 1200, step: 20 },
   { id: 'lowDamage', label: 'Low dmg', min: 1, max: 50, step: 1 },
   { id: 'lowKnockback', label: 'Low kb', min: 0, max: 800, step: 10 },
   { id: 'lowHitstun', label: 'Low stun', min: 0, max: 1200, step: 20 },
-  { id: 'specialDamage', label: 'Special dmg', min: 1, max: 50, step: 1 },
+  { id: 'specialDamage', label: 'Special dmg', min: 1, max: 120, step: 1 },
   { id: 'specialKnockback', label: 'Special kb', min: 0, max: 800, step: 10 },
   { id: 'specialHitstun', label: 'Special stun', min: 0, max: 1200, step: 20 }
 ];
