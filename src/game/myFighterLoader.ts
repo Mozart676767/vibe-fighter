@@ -20,6 +20,8 @@ import {
 } from './rawSheet';
 import type { Rect } from './types';
 
+declare const __FIGHTER_SHEET_FILES__: Record<string, Record<string, string>> | undefined;
+
 /**
  * Fighters listed in `myFighters.ts` are built from raw AI-drawn pose sheets
  * at boot (see `rawSheet.ts`) instead of hand-made 256px spritesheets. A
@@ -28,6 +30,8 @@ import type { Rect } from './types';
  */
 
 const SHEET_NAMES = ['idle', 'walk', 'punch', 'kick', 'hit', 'ko', 'jump', 'crouch', 'block', 'special'] as const;
+const BOOT_CONCURRENCY = 6;
+const BACKGROUND_CONCURRENCY = 2;
 
 type SheetName = (typeof SHEET_NAMES)[number];
 
@@ -111,6 +115,17 @@ const ACTION_PLANS: ActionPlan[] = [
 
 const PLACEHOLDER_FRAMES = 1;
 
+interface PreparedFighterState {
+  character: CharacterDefinition;
+  fighter: MyFighter;
+  sheets: Map<SheetName, RawSheet | null>;
+  combatPromise?: Promise<void>;
+  combatDone: boolean;
+}
+
+const fighterStates = new Map<string, PreparedFighterState>();
+let backgroundPrepStarted = false;
+
 function toSpec(plan: ActionPlan): FighterActionSpec {
   return {
     action: plan.action,
@@ -148,101 +163,272 @@ export const MY_FIGHTER_CHARACTERS: CharacterDefinition[] = MY_FIGHTERS.filter(
 
 export const MY_FIGHTER_IDS: string[] = MY_FIGHTER_CHARACTERS.map((character) => character.id);
 
+function candidateUrls(fighterId: string, name: string): string[] {
+  const root = `/assets/${fighterId}`;
+  const manifest =
+    typeof __FIGHTER_SHEET_FILES__ === 'object' && __FIGHTER_SHEET_FILES__ !== null
+      ? __FIGHTER_SHEET_FILES__
+      : undefined;
+
+  if (manifest) {
+    const file = manifest[fighterId]?.[name];
+    return file ? [`${root}/${file}`] : [];
+  }
+
+  return EXTENSIONS.map((extension) => `${root}/${name}.${extension}`);
+}
+
+async function runWithConcurrency<T>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  let cursor = 0;
+
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      await worker(items[index]);
+    }
+  });
+
+  await Promise.all(runners);
+}
+
+function yieldFrame(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, 0));
+}
+
+async function loadSheetForFighter(
+  fighter: MyFighter,
+  sheets: Map<SheetName, RawSheet | null>,
+  name: SheetName
+): Promise<RawSheet | null> {
+  if (!sheets.has(name)) {
+    const image = await loadFirstImage(candidateUrls(fighter.id, name));
+    const sheet = image ? sliceRawSheet(image, { flip: fighter.flip, frames: fighter.frames?.[name] }) : null;
+    sheets.set(name, sheet);
+  }
+
+  return sheets.get(name) ?? null;
+}
+
+function isGameAlive(game: Phaser.Game | null | undefined): game is Phaser.Game {
+  return Boolean(game && game.isRunning && game.textures && game.anims);
+}
+
+function applyPlanSheet(
+  scene: Phaser.Scene,
+  character: CharacterDefinition,
+  plan: ActionPlan,
+  sheet: RawSheet,
+  used: SheetName | null,
+  refreshAnim: boolean
+): void {
+  const game = scene.sys?.game;
+  if (!isGameAlive(game)) {
+    return;
+  }
+
+  const animation = character.animations.find((candidate) => candidate.action === plan.action);
+  if (!animation) {
+    return;
+  }
+
+  const resolvedSheet = plan.reverse ? reverseRawSheet(sheet) : sheet;
+  animation.sheet.frames = resolvedSheet.frames;
+  animation.bounds = buildBounds(resolvedSheet, plan, used);
+  addSheetTexture(game.textures, animation.sheet.key, resolvedSheet);
+
+  if (refreshAnim && game.anims.exists(animation.key)) {
+    game.anims.remove(animation.key);
+    game.anims.create({
+      key: animation.key,
+      frames: game.anims.generateFrameNumbers(animation.sheet.key, {
+        start: 0,
+        end: animation.sheet.frames - 1
+      }),
+      frameRate: animation.frameRate,
+      repeat: animation.repeat
+    });
+  }
+}
+
 /**
- * Load, slice and register every picture of the fighters in `myFighters.ts`.
- * Must finish before animations are registered.
+ * Phase 1 (Boot): Load idle poses and portraits for every fighter in parallel
+ * so Splash, MainMenu, and CharacterSelect open rapidly without 404 spam.
  * @param scene - The boot scene (owner of the texture manager).
+ * @param onProgress - Optional progress callback `(completed, total)`.
  */
-export async function prepareMyFighters(scene: Phaser.Scene): Promise<void> {
+export async function prepareMyFighters(
+  scene: Phaser.Scene,
+  onProgress?: (completed: number, total: number) => void
+): Promise<void> {
   MY_FIGHTERS.filter((fighter) => !MY_FIGHTER_IDS.includes(fighter.id)).forEach((fighter) => {
     console.warn(`[my-fighter] "${fighter.id}" skipped: id must be lowercase english letters, numbers or "-"`);
   });
 
-  for (const character of MY_FIGHTER_CHARACTERS) {
-    const fighter = MY_FIGHTERS.find((candidate) => candidate.id === character.id);
+  fighterStates.clear();
+  backgroundPrepStarted = false;
 
-    if (fighter) {
-      await prepareFighter(scene, character, fighter);
+  const total = MY_FIGHTER_CHARACTERS.length;
+  let completed = 0;
+
+  onProgress?.(0, total);
+
+  await runWithConcurrency(MY_FIGHTER_CHARACTERS, BOOT_CONCURRENCY, async (character) => {
+    const fighter = MY_FIGHTERS.find((candidate) => candidate.id === character.id);
+    if (!fighter) {
+      completed += 1;
+      onProgress?.(completed, total);
+      return;
     }
-  }
+
+    await prepareFighterBoot(scene, character, fighter);
+    completed += 1;
+    onProgress?.(completed, total);
+  });
 }
 
-async function prepareFighter(
+async function prepareFighterBoot(
   scene: Phaser.Scene,
   character: CharacterDefinition,
   fighter: MyFighter
 ): Promise<void> {
-  const root = `/assets/${fighter.id}`;
-  const urls = (name: string): string[] => EXTENSIONS.map((extension) => `${root}/${name}.${extension}`);
-  const sheets = new Map<SheetName, RawSheet | null>();
-
-  const getSheet = async (name: SheetName): Promise<RawSheet | null> => {
-    if (!sheets.has(name)) {
-      const image = await loadFirstImage(urls(name));
-      const sheet = image ? sliceRawSheet(image, { flip: fighter.flip, frames: fighter.frames?.[name] }) : null;
-
-      sheets.set(name, sheet);
-    }
-
-    return sheets.get(name) ?? null;
-  };
-
-  for (const plan of ACTION_PLANS) {
-    const animation = character.animations.find((candidate) => candidate.action === plan.action);
-
-    if (!animation) {
-      continue;
-    }
-
-    let used: SheetName | null = null;
-    let sheet: RawSheet | null = null;
-
-    for (const name of plan.sources) {
-      sheet = await getSheet(name);
-
-      if (sheet) {
-        used = name;
-        break;
-      }
-    }
-
-    if (!sheet) {
-      sheet = placeholderRawSheet();
-    }
-
-    if (plan.reverse) {
-      sheet = reverseRawSheet(sheet);
-    }
-
-    animation.sheet.frames = sheet.frames;
-    animation.bounds = buildBounds(sheet, plan, used);
-    addSheetTexture(scene, animation.sheet.key, sheet);
+  const game = scene.sys?.game;
+  if (!isGameAlive(game)) {
+    return;
   }
 
-  const portrait = await loadFirstImage(urls('portrait'));
-  const idle = sheets.get('idle') ?? placeholderRawSheet();
-  const fallbackPortrait = cropToPose(idle);
+  const sheets = new Map<SheetName, RawSheet | null>();
+  const [idleSheet, portrait] = await Promise.all([
+    loadSheetForFighter(fighter, sheets, 'idle'),
+    loadFirstImage(candidateUrls(fighter.id, 'portrait'))
+  ]);
 
-  replaceTexture(scene, character.portrait.key);
+  if (!isGameAlive(game)) {
+    return;
+  }
+
+  const fallbackSheet = idleSheet ?? placeholderRawSheet();
+  const usedIdle: SheetName | null = idleSheet ? 'idle' : null;
+
+  // Populate all actions initially using idle/placeholder so every texture key exists immediately.
+  for (const plan of ACTION_PLANS) {
+    applyPlanSheet(scene, character, plan, fallbackSheet, usedIdle, false);
+  }
+
+  replaceTexture(game.textures, character.portrait.key);
 
   if (portrait) {
-    scene.textures.addImage(character.portrait.key, portrait);
+    game.textures.addImage(character.portrait.key, portrait);
   } else {
-    scene.textures.addCanvas(character.portrait.key, fallbackPortrait);
+    game.textures.addCanvas(character.portrait.key, cropToPose(fallbackSheet));
   }
 
   if (character.anchorAsset.key !== character.portrait.key) {
-    replaceTexture(scene, character.anchorAsset.key);
-    scene.textures.addCanvas(character.anchorAsset.key, frameToCanvas(idle));
+    replaceTexture(game.textures, character.anchorAsset.key);
+    game.textures.addCanvas(character.anchorAsset.key, frameToCanvas(fallbackSheet));
   }
 
-  const report = SHEET_NAMES.map((name) => `${name} ${sheets.get(name)?.frames ?? '-'}`);
-
-  console.info(`[my-fighter] ${fighter.id}: ${report.join(', ')}   (number = poses found, "-" = no picture)`);
-
-  if (!sheets.get('idle')) {
-    console.warn(`[my-fighter] ${fighter.id}: public${root}/idle.png not found or has no pose in it`);
+  if (!idleSheet) {
+    console.warn(`[my-fighter] ${fighter.id}: /assets/${fighter.id}/idle not found or has no pose in it`);
   }
+
+  fighterStates.set(fighter.id, {
+    character,
+    fighter,
+    sheets,
+    combatDone: false
+  });
+}
+
+async function prepareFighterCombat(scene: Phaser.Scene, state: PreparedFighterState): Promise<void> {
+  if (state.combatDone) {
+    return;
+  }
+
+  if (state.combatPromise) {
+    return state.combatPromise;
+  }
+
+  state.combatPromise = (async () => {
+    const { character, fighter, sheets } = state;
+
+    for (const plan of ACTION_PLANS) {
+      if (plan.action === 'idle') {
+        continue;
+      }
+
+      let used: SheetName | null = null;
+      let sheet: RawSheet | null = null;
+
+      for (const name of plan.sources) {
+        sheet = await loadSheetForFighter(fighter, sheets, name);
+        if (sheet) {
+          used = name;
+          break;
+        }
+      }
+
+      if (!sheet) {
+        sheet = placeholderRawSheet();
+      }
+
+      applyPlanSheet(scene, character, plan, sheet, used, true);
+      await yieldFrame();
+    }
+
+    const report = SHEET_NAMES.map((name) => `${name} ${sheets.get(name)?.frames ?? '-'}`);
+    console.info(`[my-fighter] ${fighter.id}: ${report.join(', ')}   (number = poses found, "-" = no picture)`);
+
+    state.combatDone = true;
+  })();
+
+  return state.combatPromise;
+}
+
+/**
+ * Starts loading all fighters' remaining combat sheets in the background after
+ * boot completes, keeping menu responsiveness smooth.
+ * @param scene - Any active Phaser scene.
+ */
+export function startBackgroundFighterPrep(scene: Phaser.Scene): void {
+  if (backgroundPrepStarted) {
+    return;
+  }
+
+  backgroundPrepStarted = true;
+  const states = Array.from(fighterStates.values());
+
+  void runWithConcurrency(states, BACKGROUND_CONCURRENCY, async (state) => {
+    const game = scene.sys?.game;
+    if (!isGameAlive(game)) {
+      return;
+    }
+
+    await prepareFighterCombat(scene, state);
+  });
+}
+
+/**
+ * Ensures the specified fighter IDs have all combat sheets sliced and
+ * animations updated before starting a match.
+ * @param scene - The calling Phaser scene.
+ * @param fighterIds - Character IDs to prepare.
+ */
+export async function ensureFightersReady(scene: Phaser.Scene, fighterIds: string[]): Promise<void> {
+  const uniqueIds = Array.from(new Set(fighterIds.filter(Boolean)));
+
+  await Promise.all(
+    uniqueIds.map(async (id) => {
+      const state = fighterStates.get(id);
+      if (state) {
+        await prepareFighterCombat(scene, state);
+      }
+    })
+  );
 }
 
 function buildBounds(sheet: RawSheet, plan: ActionPlan, used: SheetName | null): HeroBoundsFrame[] {
@@ -277,10 +463,10 @@ function attackFrames(sheet: RawSheet): number[] {
   return reaches.flatMap((reach, frame) => (reach >= furthest - 12 ? [frame] : []));
 }
 
-function addSheetTexture(scene: Phaser.Scene, key: string, sheet: RawSheet): void {
-  replaceTexture(scene, key);
+function addSheetTexture(textures: Phaser.Textures.TextureManager, key: string, sheet: RawSheet): void {
+  replaceTexture(textures, key);
   // Phaser accepts a canvas here at runtime; the typings only list images.
-  scene.textures.addSpriteSheet(key, sheet.canvas as unknown as HTMLImageElement, {
+  textures.addSpriteSheet(key, sheet.canvas as unknown as HTMLImageElement, {
     frameWidth: RAW_CELL,
     frameHeight: RAW_CELL,
     startFrame: 0,
@@ -288,9 +474,9 @@ function addSheetTexture(scene: Phaser.Scene, key: string, sheet: RawSheet): voi
   });
 }
 
-function replaceTexture(scene: Phaser.Scene, key: string): void {
-  if (scene.textures.exists(key)) {
-    scene.textures.remove(key);
+function replaceTexture(textures: Phaser.Textures.TextureManager, key: string): void {
+  if (textures.exists(key)) {
+    textures.remove(key);
   }
 }
 

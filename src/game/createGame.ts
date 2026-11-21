@@ -15,7 +15,7 @@ export function createGame(parent: HTMLElement, profile: GameProfile): Phaser.Ga
   const config = GAME_PROFILES[profile];
 
   const game = new Phaser.Game({
-    type: Phaser.WEBGL,
+    type: Phaser.AUTO,
     parent,
     width: config.width,
     height: config.height,

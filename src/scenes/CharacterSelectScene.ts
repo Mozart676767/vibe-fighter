@@ -3,7 +3,7 @@ import * as Phaser from 'phaser';
 import { AUDIO_KEYS, playAudioCue } from '../game/core/audio';
 import { FIGHTER_CHARACTER_DEFINITIONS } from '../game/hero';
 import { createMenuBackdrop } from '../game/menuBackdrop';
-import { MY_FIGHTER_IDS } from '../game/myFighterLoader';
+import { ensureFightersReady, MY_FIGHTER_IDS } from '../game/myFighterLoader';
 import { playSfx, startMusic } from '../game/soundEffects';
 import { createSelectionCard, type SelectionCard } from '../game/ui';
 import { SCENE_KEYS, type MatchMode } from '../game/types';
@@ -76,6 +76,7 @@ export class CharacterSelectScene extends BaseScene {
   private team2ToggleText?: Phaser.GameObjects.Text;
   private lockBadges: Phaser.GameObjects.Text[] = [];
   private transitioning = false;
+  private startingMatch = false;
 
   constructor() {
     super(SCENE_KEYS.CharacterSelect);
@@ -91,6 +92,7 @@ export class CharacterSelectScene extends BaseScene {
     this.cardPositions = [];
     this.lockBadges = [];
     this.transitioning = false;
+    this.startingMatch = false;
     this.team2IsCpu = this.mode === '1vcpu' || this.mode === '2v2';
 
     this.markActiveScene(SCENE_KEYS.CharacterSelect);
@@ -550,17 +552,45 @@ export class CharacterSelectScene extends BaseScene {
     });
   }
 
-  private startMatch(): void {
-    if (this.transitioning && !this.team2IsCpu) {
+  private async startMatch(): Promise<void> {
+    if (this.startingMatch || (this.transitioning && !this.team2IsCpu)) {
       return;
     }
 
+    this.startingMatch = true;
     this.transitioning = true;
     const roster = SELECTABLE_ROSTER;
     const p1Main = roster[this.p1.picks[0] ?? this.p1.index].id;
     const p2Main = roster[this.p2.picks[0] ?? this.p2.index].id;
     const p1Ally = this.mode === '2v2' ? roster[this.p1.picks[1] ?? this.p1.index].id : undefined;
     const p2Ally = this.mode === '2v2' ? roster[this.p2.picks[1] ?? this.p2.index].id : undefined;
+
+    const { centerX, centerY } = this.cameras.main;
+    const loadingBadge = this.add
+      .text(centerX, centerY, 'LOADING FIGHTERS...', {
+        color: '#f8fafc',
+        fontFamily: 'monospace',
+        fontSize: '20px',
+        backgroundColor: 'rgba(2, 6, 23, 0.92)',
+        padding: { x: 20, y: 12 }
+      })
+      .setOrigin(0.5)
+      .setDepth(50);
+
+    try {
+      await ensureFightersReady(
+        this,
+        [p1Main, p2Main, p1Ally, p2Ally].filter((id): id is string => Boolean(id))
+      );
+    } finally {
+      if (loadingBadge.scene) {
+        loadingBadge.destroy();
+      }
+    }
+
+    if (!this.scene.isActive()) {
+      return;
+    }
 
     this.scene.start(SCENE_KEYS.Match, {
       mode: this.mode,

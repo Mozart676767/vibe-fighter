@@ -55,12 +55,28 @@ export async function loadFirstImage(urls: string[]): Promise<HTMLImageElement |
   return null;
 }
 
+const IMAGE_LOAD_TIMEOUT_MS = 15000;
+
 function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const image = new Image();
+    let settled = false;
 
-    image.onload = () => resolve(image.naturalWidth > 0 ? image : null);
-    image.onerror = () => resolve(null);
+    const finish = (result: HTMLImageElement | null): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      window.clearTimeout(timer);
+      image.onload = null;
+      image.onerror = null;
+      resolve(result);
+    };
+
+    const timer = window.setTimeout(() => finish(null), IMAGE_LOAD_TIMEOUT_MS);
+
+    image.onload = () => finish(image.naturalWidth > 0 ? image : null);
+    image.onerror = () => finish(null);
     image.src = url;
   });
 }

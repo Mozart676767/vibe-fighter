@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "savedAt": "2026-01-01T00:00:00.000Z",
+  "background": {
+    "id": "rooftop-parallax",
+    "selectedLayerKey": "rooftop-twilight-stage",
+    "layers": [
+      {
+        "key": "rooftop-twilight-stage",
+        "label": "Rooftop",
+        "url": "/assets/backgrounds/rooftop-twilight-stage.png",
+        "depth": 0,
+        "visible": true,
+        "speedFactor": 0.5,
+        "offsetX": 0,
+        "offsetY": 0,
+        "scale": 1,
+        "alpha": 1
+      }
+    ]
+  }
+}

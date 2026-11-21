@@ -1,9 +1,44 @@
 import { defineConfig } from 'vite';
+import { readdirSync, statSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const PUBLIC_ROOT = resolve(import.meta.dirname, 'public');
+const ASSETS_ROOT = resolve(PUBLIC_ROOT, 'assets');
+const SHEET_NAMES = ['idle', 'walk', 'punch', 'kick', 'hit', 'ko', 'jump', 'crouch', 'block', 'special', 'portrait'] as const;
+const SHEET_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'] as const;
+
+function scanFighterSheetFiles(): Record<string, Record<string, string>> {
+  const manifest: Record<string, Record<string, string>> = {};
+
+  try {
+    for (const entry of readdirSync(ASSETS_ROOT)) {
+      const folderPath = resolve(ASSETS_ROOT, entry);
+      if (!statSync(folderPath).isDirectory()) {
+        continue;
+      }
+
+      const files = new Set(readdirSync(folderPath));
+      const sheetMap: Record<string, string> = {};
+
+      for (const sheetName of SHEET_NAMES) {
+        const match = SHEET_EXTENSIONS.map((ext) => `${sheetName}.${ext}`).find((file) => files.has(file));
+        if (match) {
+          sheetMap[sheetName] = match;
+        }
+      }
+
+      if (Object.keys(sheetMap).length > 0) {
+        manifest[entry] = sheetMap;
+      }
+    }
+  } catch {
+    return {};
+  }
+
+  return manifest;
+}
 const SAVE_TARGETS = new Set([
   'assets/config/game-config.json',
   'assets/config/input-map.json',
@@ -51,6 +86,9 @@ function resolveSaveTarget(target: unknown): string | null {
 }
 
 export default defineConfig({
+  define: {
+    __FIGHTER_SHEET_FILES__: JSON.stringify(scanFighterSheetFiles())
+  },
   plugins: [
     {
       name: 'starter-debug-json-writer',
